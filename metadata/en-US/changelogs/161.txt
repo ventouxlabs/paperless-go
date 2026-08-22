@@ -1,0 +1,5 @@
+Bug fixes:
+* An upload the app has given up on no longer explains itself twice in the upload queue
+
+Other changes:
+* Building from source: a release build without the signing keystore is now unsigned instead of being signed with Android's public debug key. Such a build could never be upgraded by a real release, and could be replaced in place by any other debug-signed APK

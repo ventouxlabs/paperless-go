@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-08-22
+
+### Fixed
+- An upload the app has given up on no longer explains itself twice. The reason under the document said one thing and the "Details" line underneath restated it in slightly different words; Details now appears only when there is a real error to show
+
+### Changed
+- A release build made without the signing keystore is now **unsigned** rather than being signed with Android's public debug key. This only affects people building from source: the resulting APK must be signed before it can be installed, which is what building from source should require. A debug-signed build looked like a normal release but could never be upgraded by a real one, and could be replaced in place by any other debug-signed APK
+
 ## [1.2.0] - 2026-08-19
 
 ### Added
