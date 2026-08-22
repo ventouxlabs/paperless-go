@@ -55,7 +55,7 @@ jobs:
       # Fail the publish instead of shipping it.
       - name: Verify the release APK carries the release key
         run: |
-          set -euo pipefail
+          set -uo pipefail
           SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
           APKSIGNER=""
           if [ -n "$SDK" ]; then
@@ -66,18 +66,46 @@ jobs:
             echo "::error::apksigner not found; cannot verify the release signature."
             exit 1
           fi
-          # Public value on purpose: a certificate fingerprint is published in
-          # every APK, and committing it is what makes it a tripwire.
+          echo "apksigner: $APKSIGNER"
+
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          ls -l "$APK"
+
+          # Captured and echoed rather than piped straight into a parser: the
+          # first version of this step swallowed apksigner's output, so when the
+          # match failed it reported an empty fingerprint and gave no way to see
+          # why. Certificate details are public, so printing them costs nothing.
+          RAW=$("$APKSIGNER" verify --print-certs "$APK" 2>&1)
+          RC=$?
+          echo "----- apksigner output -----"
+          echo "$RAW"
+          echo "---------------------------"
+          if [ "$RC" -ne 0 ]; then
+            echo "::error::apksigner could not verify $APK (exit $RC)."
+            exit 1
+          fi
+
+          # Matched on the digest itself, not on a label. Different build-tools
+          # versions word the line differently (a signer block can be prefixed
+          # with an sdk range), and the 64-hex digest is the stable part.
           EXPECTED=a25ed068ab331c292cccb58b791d9ab65b9711549542bcc88b63087bddd58e81
-          ACTUAL=$("$APKSIGNER" verify --print-certs \
-            build/app/outputs/flutter-apk/app-release.apk \
-            | awk -F': ' '/Signer #1 certificate SHA-256 digest/ {print $2}')
+          ACTUAL=$(printf '%s\n' "$RAW" \
+            | grep -i "certificate SHA-256 digest" \
+            | head -1 \
+            | grep -oiE '[0-9a-f]{64}' \
+            | tr 'A-Z' 'a-z')
+
           echo "expected: $EXPECTED"
-          echo "actual:   $ACTUAL"
+          echo "actual:   ${ACTUAL:-<none found>}"
+          if [ -z "$ACTUAL" ]; then
+            echo "::error::Could not read a SHA-256 certificate digest from apksigner output (see above)."
+            exit 1
+          fi
           if [ "$ACTUAL" != "$EXPECTED" ]; then
             echo "::error::Release APK is not signed with the Paperless Go release key - refusing to publish."
             exit 1
           fi
+          echo "Signature verified."
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
