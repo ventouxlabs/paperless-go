@@ -1,5 +1,9 @@
 # 19 — Session Handoff (2026-08-18) — PRs #25 and #28 merged, retention stopped deleting, drain restructured
 
+> **SUPERSEDED by `20-handoff.md` (2026-08-22).** The state below is stale in the way
+> that matters most: it says the queue work is unreleased and `main` is at `9b65be0`.
+> v1.1.9, v1.2.0 and v1.2.1 have all shipped since. Read 20 first.
+
 Everything from `18-handoff.md` is now on `main`, plus a second PR. `main` is `9b65be0`,
 277 Dart tests, `flutter analyze` clean, verified locally after each merge.
 
