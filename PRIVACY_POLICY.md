@@ -1,6 +1,6 @@
 > ⚠️ **Superseded.** The canonical privacy policy is
 > [`play-store/privacy-policy.md`](play-store/privacy-policy.md), published at
-> <https://bearyjd.github.io/paperless-go/privacy-policy.html>. Use that URL on
+> <https://ventouxlabs.github.io/paperless-go/privacy-policy.html>. Use that URL on
 > the Play listing. This file is kept for reference only.
 
 # Privacy Policy for Paperless Go
@@ -67,13 +67,13 @@ Paperless Go does not knowingly collect any data from children or any other user
 
 ## Changes to This Policy
 
-If this privacy policy is updated, the changes will be posted in the app's source code repository at https://github.com/bearyjd/paperless-go.
+If this privacy policy is updated, the changes will be posted in the app's source code repository at https://github.com/ventouxlabs/paperless-go.
 
 ## Contact
 
 If you have questions about this privacy policy, please open an issue at:
-https://github.com/bearyjd/paperless-go/issues
+https://github.com/ventouxlabs/paperless-go/issues
 
 ## Open Source
 
-Paperless Go is free and open source software licensed under the GNU Affero General Public License v3.0. You can review the complete source code at https://github.com/bearyjd/paperless-go.
+Paperless Go is free and open source software licensed under the GNU Affero General Public License v3.0. You can review the complete source code at https://github.com/ventouxlabs/paperless-go.

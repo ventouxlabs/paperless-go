@@ -7,9 +7,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/bearyjd/paperless-go/releases/latest"><img src="https://img.shields.io/github/v/release/bearyjd/paperless-go?style=flat-square&color=17A262" alt="GitHub Release" /></a>
+  <a href="https://github.com/ventouxlabs/paperless-go/releases/latest"><img src="https://img.shields.io/github/v/release/ventouxlabs/paperless-go?style=flat-square&color=17A262" alt="GitHub Release" /></a>
   <a href="https://f-droid.org/packages/com.ventoux.paperlessgo"><img src="https://img.shields.io/f-droid/v/com.ventoux.paperlessgo?style=flat-square&color=17A262" alt="F-Droid" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/bearyjd/paperless-go?style=flat-square&color=17A262" alt="License: AGPL-3.0" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/ventouxlabs/paperless-go?style=flat-square&color=17A262" alt="License: AGPL-3.0" /></a>
   <a href="https://flutter.dev"><img src="https://img.shields.io/badge/Flutter-3.41-02569B?style=flat-square&logo=flutter" alt="Flutter" /></a>
 </p>
 
@@ -30,7 +30,7 @@ A modern, open-source mobile client for [Paperless-ngx](https://github.com/paper
 ## Install
 
 [<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" alt="Get it on F-Droid" height="60">](https://f-droid.org/packages/com.ventoux.paperlessgo)
-[<img src="https://raw.githubusercontent.com/nickmitchko/FileHost/master/artifacts/icons/get-it-on-github.png" alt="Get it on GitHub" height="60">](https://github.com/bearyjd/paperless-go/releases/latest)
+[<img src="https://raw.githubusercontent.com/nickmitchko/FileHost/master/artifacts/icons/get-it-on-github.png" alt="Get it on GitHub" height="60">](https://github.com/ventouxlabs/paperless-go/releases/latest)
 
 > **F-Droid** — Free, built without Google ML Kit (pure-Dart deskew fallback)
 > **GitHub Releases** — Includes ML Kit for better document deskew and OCR suggestions
@@ -86,7 +86,7 @@ A modern, open-source mobile client for [Paperless-ngx](https://github.com/paper
 ## Build from Source
 
 ```bash
-git clone https://github.com/bearyjd/paperless-go.git
+git clone https://github.com/ventouxlabs/paperless-go.git
 cd paperless-go
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs

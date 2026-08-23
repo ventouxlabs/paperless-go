@@ -2,16 +2,16 @@ Categories:
   - Internet
   - Reading
 License: AGPL-3.0-only
-AuthorName: bearyjd
-WebSite: https://github.com/bearyjd/paperless-go
-SourceCode: https://github.com/bearyjd/paperless-go
-IssueTracker: https://github.com/bearyjd/paperless-go/issues
+AuthorName: ventouxlabs
+WebSite: https://github.com/ventouxlabs/paperless-go
+SourceCode: https://github.com/ventouxlabs/paperless-go
+IssueTracker: https://github.com/ventouxlabs/paperless-go/issues
 
 Name: Paperless Go
 AutoName: Paperless Go
 
 RepoType: git
-Repo: https://github.com/bearyjd/paperless-go.git
+Repo: https://github.com/ventouxlabs/paperless-go.git
 
 Builds:
   - versionName: 1.1.2

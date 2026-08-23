@@ -46,7 +46,7 @@ Requirements:
 • A running Paperless-ngx instance (https://docs.paperless-ngx.com)
 • Network access to your server (local network or via reverse proxy)
 
-Paperless Go is free and open source software, licensed under AGPL-3.0. View the source code at https://github.com/bearyjd/paperless-go
+Paperless Go is free and open source software, licensed under AGPL-3.0. View the source code at https://github.com/ventouxlabs/paperless-go
 
 ## Categorization
 
@@ -56,8 +56,8 @@ Paperless Go is free and open source software, licensed under AGPL-3.0. View the
 ## Contact Details
 
 **Email:** jd@beary.us
-**Website:** https://github.com/bearyjd/paperless-go
-**Privacy policy URL:** https://github.com/bearyjd/paperless-go/blob/main/PRIVACY_POLICY.md
+**Website:** https://github.com/ventouxlabs/paperless-go
+**Privacy policy URL:** https://github.com/ventouxlabs/paperless-go/blob/main/PRIVACY_POLICY.md
 
 ## Content Rating Questionnaire Notes
 
