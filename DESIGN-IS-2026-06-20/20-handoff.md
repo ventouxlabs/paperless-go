@@ -1,5 +1,9 @@
 # 20 — Session Handoff (2026-08-22) — three releases shipped, queue verified on hardware, release signing repaired
 
+> **Its OPEN section is superseded by `21-handoff.md`** (repo moved to `ventouxlabs`,
+> and F-Droid users were stranded on 1.1.7 — both handled there). The rest of this
+> document still stands.
+
 `main` is `50bd8a5`. **326 Dart tests**, `flutter analyze` clean, no open PRs.
 **v1.2.1 is live** and `main` has nothing unreleased.
 
