@@ -14,9 +14,9 @@ RepoType: git
 Repo: https://github.com/ventouxlabs/paperless-go.git
 
 Builds:
-  - versionName: 1.1.2
-    versionCode: 71
-    commit: 38872ba58344473856fa0c358ddadb9ae2b688c3
+  - versionName: 1.2.1
+    versionCode: 161
+    commit: v1.2.1
     output: build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
     srclibs:
       - flutter@stable
@@ -41,9 +41,9 @@ Builds:
       - $$flutter$$/bin/flutter pub get
       - $$flutter$$/bin/flutter build apk --release --split-per-abi
 
-  - versionName: 1.1.2
-    versionCode: 72
-    commit: 38872ba58344473856fa0c358ddadb9ae2b688c3
+  - versionName: 1.2.1
+    versionCode: 162
+    commit: v1.2.1
     output: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
     srclibs:
       - flutter@stable
@@ -68,9 +68,9 @@ Builds:
       - $$flutter$$/bin/flutter pub get
       - $$flutter$$/bin/flutter build apk --release --split-per-abi
 
-  - versionName: 1.1.2
-    versionCode: 73
-    commit: 38872ba58344473856fa0c358ddadb9ae2b688c3
+  - versionName: 1.2.1
+    versionCode: 163
+    commit: v1.2.1
     output: build/app/outputs/flutter-apk/app-x86_64-release.apk
     srclibs:
       - flutter@stable
@@ -100,6 +100,16 @@ MaintainerNotes: |-
   baseVersionCode * 10 + abiCode, where
   abiCodes: armeabi-v7a=1, arm64-v8a=2, x86_64=3.
 
+  This build is deliberately not the GitHub release build. prebuild strips
+  google_mlkit_text_recognition and cunning_document_scanner and swaps in the
+  pure-Dart stubs, so the F-Droid APK has no Google ML Kit: document deskew
+  falls back to the Dart implementation and OCR metadata suggestions are absent.
+
+  applicationId is com.ventouxlabs.paperlessgo. The earlier id
+  com.ventoux.paperlessgo (which this file used to be named for) was burned on
+  Play and is not what the build produces - metadata filed under it would never
+  match the built APK.
+
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
 VercodeOperation:
@@ -107,5 +117,5 @@ VercodeOperation:
   - '%c * 10 + 2'
   - '%c * 10 + 3'
 UpdateCheckData: pubspec.yaml|version:\s.+\+(\d+)|.|version:\s(.+)\+
-CurrentVersion: 1.1.2
-CurrentVersionCode: 73
+CurrentVersion: 1.2.1
+CurrentVersionCode: 163
