@@ -1,7 +1,7 @@
 name: paperless_go
 description: A modern Paperless-ngx client
 publish_to: 'none'
-version: 1.2.1+16
+version: 1.2.2+17
 
 environment:
   sdk: ^3.9.2

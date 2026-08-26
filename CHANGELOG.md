@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-08-25
+
+### Fixed
+- **F-Droid builds work again.** The dependency lockfile the F-Droid build is pinned to still listed a package this app stopped using in 1.1.8, which makes F-Droid's build fail outright rather than degrade. Every F-Droid tag since then would have failed to build, leaving F-Droid users stranded on 1.1.7 — without the share-intent fixes, the upload queue, or any of the data-loss fixes released since. There is no change to the app itself in this release
+
+### Changed
+- Release tags are now pushed to the GitLab mirror automatically. F-Droid watches the mirror for new tags, and the mirror had twice fallen far enough behind GitHub that F-Droid could not see releases that existed
+
 ## [1.2.1] - 2026-08-22
 
 ### Fixed

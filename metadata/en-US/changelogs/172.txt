@@ -1,0 +1,4 @@
+Bug fixes:
+* F-Droid builds work again. The dependency lockfile this build is pinned to still listed a package the app stopped using in 1.1.8, which makes the build fail outright. Every tag since then failed to build, which is why F-Droid was still offering 1.1.7 — without the share-intent fixes, the upload queue, or the data-loss fixes released since
+
+There is no change to the app itself in this release. If you are coming from 1.1.7, everything between 1.1.8 and 1.2.1 arrives with it.

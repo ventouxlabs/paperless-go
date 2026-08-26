@@ -114,3 +114,40 @@ jobs:
             build/app/outputs/flutter-apk/app-release.apk
             build/app/outputs/bundle/release/app-release.aab
           generate_release_notes: true
+
+  # F-Droid builds from the GitLab mirror, not from GitHub, and finds releases
+  # by scanning that remote for tags (UpdateCheckMode: Tags). Twice now the
+  # mirror has fallen dozens of commits and several tags behind - v1.1.5 and
+  # again at v1.2.1 - and both times F-Droid users sat on an old build for
+  # months because a tag F-Droid could see simply did not exist. Pushing the tag
+  # from the same workflow that publishes it is the only way the two channels
+  # cannot drift.
+  #
+  # Runs only after the signature gate above has passed: a tag F-Droid can see
+  # should be a tag we were willing to publish.
+  mirror-tag-to-gitlab:
+    needs: build-apk
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The mirror push needs real history; the default depth-1 checkout
+          # cannot fast-forward GitLab's main.
+          fetch-depth: 0
+
+      - name: Push tag and main to the GitLab mirror
+        env:
+          GITLAB_MIRROR_TOKEN: ${{ secrets.GITLAB_MIRROR_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GITLAB_MIRROR_TOKEN:-}" ]; then
+            echo "::error::GITLAB_MIRROR_TOKEN is not set. F-Droid reads tags from the GitLab mirror, so without it this tag is invisible to F-Droid and someone must push it by hand."
+            exit 1
+          fi
+          REMOTE="https://oauth2:${GITLAB_MIRROR_TOKEN}@gitlab.com/selector4560/paperless-go.git"
+          TAG="${GITHUB_REF_NAME}"
+          echo "Mirroring ${TAG} and main to gitlab.com/selector4560/paperless-go"
+          # Both are fast-forward only: this must never rewrite the mirror.
+          git push "$REMOTE" "HEAD:refs/heads/main"
+          git push "$REMOTE" "refs/tags/${TAG}"
+          echo "Mirrored ${TAG}."
