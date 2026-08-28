@@ -75,9 +75,9 @@ class _FailsRetryWrite extends CacheRepository {
 class _FakeAuthenticated extends AuthState {
   @override
   Future<AuthStatus> build() async => const AuthStatus.authenticated(
-        serverUrl: 'https://paperless.example.com',
-        token: 'test-token',
-      );
+    serverUrl: 'https://paperless.example.com',
+    token: 'test-token',
+  );
 }
 
 /// Nobody signed in, which is also why `paperlessApiProvider` throws.
@@ -93,11 +93,11 @@ class _DeferredAuth extends AuthState {
   Future<AuthStatus> build() async => const AuthStatus.unauthenticated();
 
   void authenticate() => state = const AsyncData(
-        AuthStatus.authenticated(
-          serverUrl: 'https://paperless.example.com',
-          token: 'test-token',
-        ),
-      );
+    AuthStatus.authenticated(
+      serverUrl: 'https://paperless.example.com',
+      token: 'test-token',
+    ),
+  );
 }
 
 /// Fails the bookkeeping for whichever row the sweep reaches first, so the
@@ -126,6 +126,22 @@ class _FailsFirstRow extends CacheRepository {
       throw StateError('database gone');
     }
     return super.markUploadFailed(id, error);
+  }
+
+  @override
+  Future<void> markUploadExpired(
+    int id,
+    DateTime expiredAt,
+    String error,
+  ) async {
+    // A freshly-expired row is recorded through this method, not
+    // markUploadFailed — the boundary has to hold for it too, for the same
+    // reason and with the same latch.
+    failedId ??= id;
+    if (id == failedId) {
+      throw StateError('database gone');
+    }
+    return super.markUploadExpired(id, expiredAt, error);
   }
 }
 
@@ -205,36 +221,43 @@ void main() {
     }
   }
 
-  test('a queued upload is sent, its row removed and its file released',
-      () async {
-    final path = await queuedFile('obb tix.pdf');
+  test(
+    'a queued upload is sent, its row removed and its file released',
+    () async {
+      final path = await queuedFile('obb tix.pdf');
 
-    await drain();
+      await drain();
 
-    expect(api.uploaded, [path]);
-    expect(await cache.getPendingUploads(), isEmpty);
-    expect(await File(path).exists(), isFalse,
-        reason: 'the persisted copy should not outlive a successful upload');
-  });
+      expect(api.uploaded, [path]);
+      expect(await cache.getPendingUploads(), isEmpty);
+      expect(
+        await File(path).exists(),
+        isFalse,
+        reason: 'the persisted copy should not outlive a successful upload',
+      );
+    },
+  );
 
-  test('a failed upload keeps both the row and the file for the next pass',
-      () async {
-    final path = await queuedFile('retry.pdf');
-    api.failure = DioException(
-      requestOptions: RequestOptions(path: '/'),
-      type: DioExceptionType.connectionError,
-    );
+  test(
+    'a failed upload keeps both the row and the file for the next pass',
+    () async {
+      final path = await queuedFile('retry.pdf');
+      api.failure = DioException(
+        requestOptions: RequestOptions(path: '/'),
+        type: DioExceptionType.connectionError,
+      );
 
-    await drain();
+      await drain();
 
-    final pending = (await cache.getPendingUploads()).single;
-    // retryCount stays 0: an unreachable server says nothing about the
-    // document, so it must not spend the budget. See the offline test below.
-    expect(pending.retryCount, 0);
-    expect(pending.lastError, isNotNull);
-    expect(pending.isFailed, isFalse);
-    expect(await File(path).exists(), isTrue);
-  });
+      final pending = (await cache.getPendingUploads()).single;
+      // retryCount stays 0: an unreachable server says nothing about the
+      // document, so it must not spend the budget. See the offline test below.
+      expect(pending.retryCount, 0);
+      expect(pending.lastError, isNotNull);
+      expect(pending.isFailed, isFalse);
+      expect(await File(path).exists(), isTrue);
+    },
+  );
 
   test('a later pass uploads what an earlier failure left behind', () async {
     final path = await queuedFile('eventually.pdf');
@@ -251,18 +274,20 @@ void main() {
     expect(await cache.getPendingUploads(), isEmpty);
   });
 
-  test('a vanished file marks the row failed rather than deleting it',
-      () async {
-    final path = await queuedFile('evicted.pdf');
-    await File(path).delete();
+  test(
+    'a vanished file marks the row failed rather than deleting it',
+    () async {
+      final path = await queuedFile('evicted.pdf');
+      await File(path).delete();
 
-    await drain();
+      await drain();
 
-    final row = (await cache.getPendingUploads()).single;
-    expect(row.isFailed, isTrue);
-    expect(row.lastError, contains('no longer available'));
-    expect(api.uploaded, isEmpty);
-  });
+      final row = (await cache.getPendingUploads()).single;
+      expect(row.isFailed, isTrue);
+      expect(row.lastError, contains('no longer available'));
+      expect(api.uploaded, isEmpty);
+    },
+  );
 
   test('a terminally failed row is skipped, not retried', () async {
     await queuedFile('dead.pdf');
@@ -289,63 +314,72 @@ void main() {
       return queuedFile(name);
     }
 
-    test('a retry write that throws does not strand the row behind it',
-        () async {
-      // The escape most likely to survive a naive fix: this throw is raised
-      // from INSIDE the pass's own catch block, so a try/catch that only wraps
-      // the happy path does not contain it.
-      final good = await queuedBehind('first.pdf', 'second.pdf');
-      api.failure = DioException(
-        requestOptions: RequestOptions(path: '/'),
-        type: DioExceptionType.badResponse,
-      );
-      final broken = ProviderContainer(
-        overrides: [
-          cacheRepositoryProvider.overrideWithValue(_FailsRetryWrite(db)),
-          paperlessApiProvider.overrideWithValue(api),
-          pendingUploadStoreProvider.overrideWith((ref) async => store),
-          authStateProvider.overrideWith(_FakeAuthenticated.new),
-          connectivityNotifierProvider.overrideWith(_FakeOnline.new),
-        ],
-      );
-      addTearDown(broken.dispose);
+    test(
+      'a retry write that throws does not strand the row behind it',
+      () async {
+        // The escape most likely to survive a naive fix: this throw is raised
+        // from INSIDE the pass's own catch block, so a try/catch that only wraps
+        // the happy path does not contain it.
+        final good = await queuedBehind('first.pdf', 'second.pdf');
+        api.failure = DioException(
+          requestOptions: RequestOptions(path: '/'),
+          type: DioExceptionType.badResponse,
+        );
+        final broken = ProviderContainer(
+          overrides: [
+            cacheRepositoryProvider.overrideWithValue(_FailsRetryWrite(db)),
+            paperlessApiProvider.overrideWithValue(api),
+            pendingUploadStoreProvider.overrideWith((ref) async => store),
+            authStateProvider.overrideWith(_FakeAuthenticated.new),
+            connectivityNotifierProvider.overrideWith(_FakeOnline.new),
+          ],
+        );
+        addTearDown(broken.dispose);
 
-      // The first row's retry bookkeeping throws; the second must still be
-      // attempted. Both fail to upload here, so the proof is the attempt.
-      await broken.read(uploadQueueServiceProvider.notifier).drainNow();
+        // The first row's retry bookkeeping throws; the second must still be
+        // attempted. Both fail to upload here, so the proof is the attempt.
+        await broken.read(uploadQueueServiceProvider.notifier).drainNow();
 
-      // Load-bearing: `good` is genuinely SECOND, because getPendingUploads
-      // orders by id. Reaching it at all means the pass survived the first
-      // row's throw. (Counting attempts instead would be wrong — the service
-      // also drains on build, so attempts accumulate across passes.)
-      expect(api.attempted, contains(good),
-          reason: 'a failed retry write on one row must not end the pass');
-    });
+        // Load-bearing: `good` is genuinely SECOND, because getPendingUploads
+        // orders by id. Reaching it at all means the pass survived the first
+        // row's throw. (Counting attempts instead would be wrong — the service
+        // also drains on build, so attempts accumulate across passes.)
+        expect(
+          api.attempted,
+          contains(good),
+          reason: 'a failed retry write on one row must not end the pass',
+        );
+      },
+    );
 
-    test('a failed missing-file write does not strand the row behind it',
-        () async {
-      // The missing-file branch marks the row failed OUTSIDE the pass's
-      // try/catch, so a throw there escapes the loop entirely.
-      final good = await queuedBehind('vanished.pdf', 'healthy.pdf');
-      final rows = await cache.getPendingUploads();
-      final gone = rows.firstWhere((r) => r.filePath.endsWith('vanished.pdf'));
-      await File(gone.filePath).delete();
+    test(
+      'a failed missing-file write does not strand the row behind it',
+      () async {
+        // The missing-file branch marks the row failed OUTSIDE the pass's
+        // try/catch, so a throw there escapes the loop entirely.
+        final good = await queuedBehind('vanished.pdf', 'healthy.pdf');
+        final rows = await cache.getPendingUploads();
+        final gone = rows.firstWhere(
+          (r) => r.filePath.endsWith('vanished.pdf'),
+        );
+        await File(gone.filePath).delete();
 
-      final broken = ProviderContainer(
-        overrides: [
-          cacheRepositoryProvider.overrideWithValue(_FailsFirstRow(db)),
-          paperlessApiProvider.overrideWithValue(api),
-          pendingUploadStoreProvider.overrideWith((ref) async => store),
-          authStateProvider.overrideWith(_FakeAuthenticated.new),
-          connectivityNotifierProvider.overrideWith(_FakeOnline.new),
-        ],
-      );
-      addTearDown(broken.dispose);
+        final broken = ProviderContainer(
+          overrides: [
+            cacheRepositoryProvider.overrideWithValue(_FailsFirstRow(db)),
+            paperlessApiProvider.overrideWithValue(api),
+            pendingUploadStoreProvider.overrideWith((ref) async => store),
+            authStateProvider.overrideWith(_FakeAuthenticated.new),
+            connectivityNotifierProvider.overrideWith(_FakeOnline.new),
+          ],
+        );
+        addTearDown(broken.dispose);
 
-      await broken.read(uploadQueueServiceProvider.notifier).drainNow();
+        await broken.read(uploadQueueServiceProvider.notifier).drainNow();
 
-      expect(api.uploaded, contains(good));
-    });
+        expect(api.uploaded, contains(good));
+      },
+    );
 
     test('a row with unreadable tags is failed, not retried forever', () async {
       final good = await queuedBehind('badtags.pdf', 'fine.pdf');
@@ -356,14 +390,24 @@ void main() {
 
       await drain();
 
-      final row = (await cache.getPendingUploads())
-          .firstWhere((r) => r.id == bad.id);
-      expect(row.isFailed, isTrue,
-          reason: 'retrying cannot repair metadata that will not parse');
-      expect(row.retryCount, 0,
-          reason: 'and it must not burn the budget on the way there');
-      expect(api.uploaded, contains(good),
-          reason: 'the row behind it still uploads');
+      final row = (await cache.getPendingUploads()).firstWhere(
+        (r) => r.id == bad.id,
+      );
+      expect(
+        row.isFailed,
+        isTrue,
+        reason: 'retrying cannot repair metadata that will not parse',
+      );
+      expect(
+        row.retryCount,
+        0,
+        reason: 'and it must not burn the budget on the way there',
+      );
+      expect(
+        api.uploaded,
+        contains(good),
+        reason: 'the row behind it still uploads',
+      );
     });
   });
 
@@ -376,8 +420,11 @@ void main() {
 
     await drain();
 
-    expect(api.uploaded, [good],
-        reason: 'the healthy upload after the broken one must still be sent');
+    expect(
+      api.uploaded,
+      [good],
+      reason: 'the healthy upload after the broken one must still be sent',
+    );
   });
 
   test('a queue left over from a previous run drains on startup', () async {
@@ -416,103 +463,119 @@ void main() {
     fresh.read(uploadQueueServiceProvider);
     await settle(fresh);
 
-    expect(freshApi.uploaded, [path],
-        reason: 'no explicit drain was requested — startup alone must flush');
+    expect(
+      freshApi.uploaded,
+      [path],
+      reason: 'no explicit drain was requested — startup alone must flush',
+    );
     expect(await freshCache.getPendingUploads(), isEmpty);
   });
 
-  test('logging in flushes a queue that was waiting on authentication',
-      () async {
-    // Regression, caught on a Pixel 9 Pro Fold: the queue sat there after
-    // login and never drained. The auth listener fired correctly, but the api
-    // provider throws while unauthenticated and Riverpod still served that
-    // cached error to a read one millisecond later — so the drain gave up and
-    // nothing retriggered it. The listener has to defer a turn.
-    final freshDb = AppDatabase(NativeDatabase.memory());
-    final freshCache = CacheRepository(freshDb);
-    final freshApi = _FakeApi();
-    addTearDown(freshDb.close);
+  test(
+    'logging in flushes a queue that was waiting on authentication',
+    () async {
+      // Regression, caught on a Pixel 9 Pro Fold: the queue sat there after
+      // login and never drained. The auth listener fired correctly, but the api
+      // provider throws while unauthenticated and Riverpod still served that
+      // cached error to a read one millisecond later — so the drain gave up and
+      // nothing retriggered it. The listener has to defer a turn.
+      final freshDb = AppDatabase(NativeDatabase.memory());
+      final freshCache = CacheRepository(freshDb);
+      final freshApi = _FakeApi();
+      addTearDown(freshDb.close);
 
-    final source = File(p.join(root.path, 'src', 'after-login.pdf'))
-      ..createSync(recursive: true)
-      ..writeAsStringSync('PDF');
-    final path = await store.persist(source.path);
-    await freshCache.enqueueUpload(
-      filePath: path,
-      filename: 'after-login.pdf',
-      serverUrl: 'https://paperless.example.com',
-    );
+      final source = File(p.join(root.path, 'src', 'after-login.pdf'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync('PDF');
+      final path = await store.persist(source.path);
+      await freshCache.enqueueUpload(
+        filePath: path,
+        filename: 'after-login.pdf',
+        serverUrl: 'https://paperless.example.com',
+      );
 
-    final auth = _DeferredAuth();
-    final pending = ProviderContainer(
-      overrides: [
-        cacheRepositoryProvider.overrideWithValue(freshCache),
-        pendingUploadStoreProvider.overrideWith((ref) async => store),
-        connectivityNotifierProvider.overrideWith(_FakeOnline.new),
-        authStateProvider.overrideWith(() => auth),
-        // Mirrors dioProvider: throws while unauthenticated, so Riverpod
-        // caches the failure exactly as it does in the app.
-        paperlessApiProvider.overrideWith((ref) {
-          final status = ref.watch(authStateProvider).valueOrNull;
-          if (status == null || !status.isAuthenticated) {
-            throw const NotAuthenticatedException();
-          }
-          return freshApi;
-        }),
-      ],
-    );
-    addTearDown(pending.dispose);
+      final auth = _DeferredAuth();
+      final pending = ProviderContainer(
+        overrides: [
+          cacheRepositoryProvider.overrideWithValue(freshCache),
+          pendingUploadStoreProvider.overrideWith((ref) async => store),
+          connectivityNotifierProvider.overrideWith(_FakeOnline.new),
+          authStateProvider.overrideWith(() => auth),
+          // Mirrors dioProvider: throws while unauthenticated, so Riverpod
+          // caches the failure exactly as it does in the app.
+          paperlessApiProvider.overrideWith((ref) {
+            final status = ref.watch(authStateProvider).valueOrNull;
+            if (status == null || !status.isAuthenticated) {
+              throw const NotAuthenticatedException();
+            }
+            return freshApi;
+          }),
+        ],
+      );
+      addTearDown(pending.dispose);
 
-    pending.read(uploadQueueServiceProvider);
-    await Future<void>.delayed(Duration.zero);
-    expect(freshApi.uploaded, isEmpty, reason: 'not logged in yet');
+      pending.read(uploadQueueServiceProvider);
+      await Future<void>.delayed(Duration.zero);
+      expect(freshApi.uploaded, isEmpty, reason: 'not logged in yet');
 
-    auth.authenticate();
-    await settle(pending);
+      auth.authenticate();
+      await settle(pending);
 
-    expect(freshApi.uploaded, [path],
-        reason: 'logging in must flush the queue on its own');
-    expect(await freshCache.getPendingUploads(), isEmpty);
-  });
+      expect(freshApi.uploaded, [
+        path,
+      ], reason: 'logging in must flush the queue on its own');
+      expect(await freshCache.getPendingUploads(), isEmpty);
+    },
+  );
 
-  test('a row queued for another server is never uploaded to this one',
-      () async {
-    // Regression: switching profiles calls loginWithToken, which emits
-    // AsyncLoading before authenticated. The auth listener reads that as an
-    // unauthenticated->authenticated edge and drains, so every document queued
-    // for account A was uploaded to account B.
-    final source = File(p.join(root.path, 'src', 'other-account.pdf'))
-      ..createSync(recursive: true)
-      ..writeAsStringSync('PDF');
-    final persisted = await store.persist(source.path);
-    await cache.enqueueUpload(
-      filePath: persisted,
-      filename: 'other-account.pdf',
-      serverUrl: 'https://someone-elses-server.example.com',
-    );
+  test(
+    'a row queued for another server is never uploaded to this one',
+    () async {
+      // Regression: switching profiles calls loginWithToken, which emits
+      // AsyncLoading before authenticated. The auth listener reads that as an
+      // unauthenticated->authenticated edge and drains, so every document queued
+      // for account A was uploaded to account B.
+      final source = File(p.join(root.path, 'src', 'other-account.pdf'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync('PDF');
+      final persisted = await store.persist(source.path);
+      await cache.enqueueUpload(
+        filePath: persisted,
+        filename: 'other-account.pdf',
+        serverUrl: 'https://someone-elses-server.example.com',
+      );
 
-    await drain();
+      await drain();
 
-    expect(api.uploaded, isEmpty,
-        reason: 'this document belongs to a different account');
-    expect(await cache.getPendingUploads(), hasLength(1),
-        reason: 'it waits for its own server, it is not discarded');
-    expect(await File(persisted).exists(), isTrue);
-  });
+      expect(
+        api.uploaded,
+        isEmpty,
+        reason: 'this document belongs to a different account',
+      );
+      expect(
+        await cache.getPendingUploads(),
+        hasLength(1),
+        reason: 'it waits for its own server, it is not discarded',
+      );
+      expect(await File(persisted).exists(), isTrue);
+    },
+  );
 
-  test('a row with no recorded server is skipped rather than guessed at',
-      () async {
-    final source = File(p.join(root.path, 'src', 'legacy.pdf'))
-      ..createSync(recursive: true)
-      ..writeAsStringSync('PDF');
-    final persisted = await store.persist(source.path);
-    await cache.enqueueUpload(filePath: persisted, filename: 'legacy.pdf');
+  test(
+    'a row with no recorded server is skipped rather than guessed at',
+    () async {
+      final source = File(p.join(root.path, 'src', 'legacy.pdf'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync('PDF');
+      final persisted = await store.persist(source.path);
+      await cache.enqueueUpload(filePath: persisted, filename: 'legacy.pdf');
 
-    await drain();
+      await drain();
 
-    expect(api.uploaded, isEmpty);
-    expect(await cache.getPendingUploads(), hasLength(1));
-  });
+      expect(api.uploaded, isEmpty);
+      expect(await cache.getPendingUploads(), hasLength(1));
+    },
+  );
 
   test('being offline does not consume the retry budget', () async {
     // Regression: ConnectivityNotifier reports online until its first real
@@ -554,30 +617,47 @@ void main() {
     );
   }
 
+  /// Backdates `expiredAt` directly, standing in for an earlier sweep having
+  /// already recorded a row as expired — tests exercising the confirmation
+  /// window never run a second sweep on a real, later clock.
+  Future<void> ageExpiry(int id, Duration age) async {
+    await (db.update(db.pendingUploads)..where((t) => t.id.equals(id))).write(
+      PendingUploadsCompanion(expiredAt: Value(DateTime.now().subtract(age))),
+    );
+  }
+
   group('retention records an outcome without destroying the document', () {
-    test('a row for a server that never comes back is eventually given up on',
-        () async {
-      // Regression: unreachable failures stopped consuming retries, so the row
-      // never became isFailed and retention — which only ran for isFailed rows
-      // — never recorded any outcome for it at all.
-      final path = await queuedFile('abandoned.pdf');
-      api.failure = DioException(
-        requestOptions: RequestOptions(path: '/'),
-        type: DioExceptionType.connectionError,
-      );
-      await drain();
-      await ageRow((await cache.getPendingUploads()).single.id,
-          const Duration(days: 31));
+    test(
+      'a row for a server that never comes back is eventually given up on',
+      () async {
+        // Regression: unreachable failures stopped consuming retries, so the row
+        // never became isFailed and retention — which only ran for isFailed rows
+        // — never recorded any outcome for it at all.
+        final path = await queuedFile('abandoned.pdf');
+        api.failure = DioException(
+          requestOptions: RequestOptions(path: '/'),
+          type: DioExceptionType.connectionError,
+        );
+        await drain();
+        await ageRow(
+          (await cache.getPendingUploads()).single.id,
+          const Duration(days: 31),
+        );
 
-      await drain();
+        await drain();
 
-      final row = (await cache.getPendingUploads()).single;
-      expect(row.isFailed, isTrue, reason: 'the outcome is on the record');
-      expect(row.lastError, contains('Gave up'));
-      expect(await File(path).exists(), isTrue,
-          reason: 'the file IS the document, and no UI can warn about losing '
-              'it — expiry stops retrying, it does not delete');
-    });
+        final row = (await cache.getPendingUploads()).single;
+        expect(row.isFailed, isTrue, reason: 'the outcome is on the record');
+        expect(row.lastError, contains('Gave up'));
+        expect(
+          await File(path).exists(),
+          isTrue,
+          reason:
+              'the file IS the document, and no UI can warn about losing '
+              'it — expiry stops retrying, it does not delete',
+        );
+      },
+    );
 
     test('a row whose profile was deleted is also given up on', () async {
       // Rows for another server are skipped before any cleanup, so a deleted
@@ -591,14 +671,19 @@ void main() {
         filename: 'deleted-profile.pdf',
         serverUrl: 'https://server-that-no-longer-exists.example.com',
       );
-      await ageRow((await cache.getPendingUploads()).single.id,
-          const Duration(days: 31));
+      await ageRow(
+        (await cache.getPendingUploads()).single.id,
+        const Duration(days: 31),
+      );
 
       await drain();
 
       expect((await cache.getPendingUploads()).single.isFailed, isTrue);
-      expect(await File(persisted).exists(), isTrue,
-          reason: 'a deleted profile is not a reason to destroy the document');
+      expect(
+        await File(persisted).exists(),
+        isTrue,
+        reason: 'a deleted profile is not a reason to destroy the document',
+      );
     });
 
     /// A genuinely signed-out launch.
@@ -626,23 +711,30 @@ void main() {
       return c;
     }
 
-    test('an expired row is given up on even with no server configured',
-        () async {
-      // Regression: the drain returned as soon as paperlessApiProvider threw,
-      // so the retention sweep never ran for a signed-out user — whose queue
-      // then grew with no outcome ever recorded for any of it.
-      final path = await queuedFile('signed-out.pdf');
-      await ageRow((await cache.getPendingUploads()).single.id,
-          const Duration(days: 31));
+    test(
+      'an expired row is given up on even with no server configured',
+      () async {
+        // Regression: the drain returned as soon as paperlessApiProvider threw,
+        // so the retention sweep never ran for a signed-out user — whose queue
+        // then grew with no outcome ever recorded for any of it.
+        final path = await queuedFile('signed-out.pdf');
+        await ageRow(
+          (await cache.getPendingUploads()).single.id,
+          const Duration(days: 31),
+        );
 
-      await signedOutContainer()
-          .read(uploadQueueServiceProvider.notifier)
-          .drainNow();
+        await signedOutContainer()
+            .read(uploadQueueServiceProvider.notifier)
+            .drainNow();
 
-      expect((await cache.getPendingUploads()).single.isFailed, isTrue,
-          reason: 'retention cannot depend on being signed in');
-      expect(await File(path).exists(), isTrue);
-    });
+        expect(
+          (await cache.getPendingUploads()).single.isFailed,
+          isTrue,
+          reason: 'retention cannot depend on being signed in',
+        );
+        expect(await File(path).exists(), isTrue);
+      },
+    );
 
     test('a row the sweep cannot record does not strand the rest', () async {
       await queuedFile('unrecordable.pdf');
@@ -674,14 +766,22 @@ void main() {
       // Guards the proof itself: with a single row the expected set and the
       // actual set are both empty, so this passes while proving nothing.
       // There must be a row BEHIND the one that threw for it to mean anything.
-      expect(swept, hasLength(greaterThan(1)),
-          reason: 'a one-row version of this test is vacuous');
-      expect(swept.where((r) => r.isFailed).map((r) => r.id),
-          swept.map((r) => r.id).where((id) => id != threw),
-          reason: 'every row behind the one that threw is still swept');
+      expect(
+        swept,
+        hasLength(greaterThan(1)),
+        reason: 'a one-row version of this test is vacuous',
+      );
+      expect(
+        swept.where((r) => r.isFailed).map((r) => r.id),
+        swept.map((r) => r.id).where((id) => id != threw),
+        reason: 'every row behind the one that threw is still swept',
+      );
 
-      expect(swept.every((r) => File(r.filePath).existsSync()), isTrue,
-          reason: 'the sweep never deletes, whether or not its write succeeds');
+      expect(
+        swept.every((r) => File(r.filePath).existsSync()),
+        isTrue,
+        reason: 'the sweep never deletes, whether or not its write succeeds',
+      );
     });
 
     test('a recent row is untouched while signed out', () async {
@@ -714,6 +814,149 @@ void main() {
     });
   });
 
+  group('retention releases the file once expiry is confirmed', () {
+    test('a row expired for the first time keeps its file', () async {
+      final path = await queuedFile('first-observation.pdf');
+      await ageRow(
+        (await cache.getPendingUploads()).single.id,
+        const Duration(days: 31),
+      );
+
+      await drain();
+
+      final row = (await cache.getPendingUploads()).single;
+      expect(
+        row.expiredAt,
+        isNotNull,
+        reason: 'the sweep records when it first saw this row expired',
+      );
+      expect(
+        await File(path).exists(),
+        isTrue,
+        reason: 'nothing is released on the same sweep that first notices',
+      );
+    });
+
+    test(
+      'a row still short of the confirmation window keeps its file',
+      () async {
+        final path = await queuedFile('too-recent-to-confirm.pdf');
+        final id = (await cache.getPendingUploads()).single.id;
+        await ageRow(id, const Duration(days: 31));
+        await ageExpiry(id, const Duration(hours: 23));
+
+        await drain();
+
+        expect(
+          await File(path).exists(),
+          isTrue,
+          reason:
+              'under 24 hours since the first observation is not enough '
+              'to trust a second, independent sample of the clock',
+        );
+        expect(
+          (await cache.getPendingUploads()).single.lastError,
+          isNot(contains('deleted from this device')),
+        );
+      },
+    );
+
+    test('a row confirmed past the window has its file released', () async {
+      final path = await queuedFile('confirmed.pdf');
+      final id = (await cache.getPendingUploads()).single.id;
+      await ageRow(id, const Duration(days: 31));
+      await ageExpiry(id, const Duration(hours: 25));
+
+      await drain();
+
+      expect(
+        await File(path).exists(),
+        isFalse,
+        reason:
+            'two independent samples 24h apart both agreeing on expiry '
+            'is enough to release the file',
+      );
+      final row = (await cache.getPendingUploads()).single;
+      expect(row.isFailed, isTrue, reason: 'the row itself is kept');
+      expect(row.lastError, contains('deleted from this device'));
+    });
+
+    test(
+      'a row whose expiredAt looks like it is in the future is not touched',
+      () async {
+        // Guards the clock-jump case the confirmation window exists for: a
+        // sweep whose own clock reads earlier than a previously recorded
+        // expiredAt cannot be trusted to confirm anything.
+        final path = await queuedFile('future-expiredAt.pdf');
+        final id = (await cache.getPendingUploads()).single.id;
+        await ageRow(id, const Duration(days: 31));
+        await (db.update(
+          db.pendingUploads,
+        )..where((t) => t.id.equals(id))).write(
+          PendingUploadsCompanion(
+            expiredAt: Value(DateTime.now().add(const Duration(days: 1))),
+          ),
+        );
+
+        await drain();
+
+        expect(await File(path).exists(), isTrue);
+      },
+    );
+
+    test(
+      'retrying an already-released row does not resurrect the file',
+      () async {
+        final path = await queuedFile('released-then-retried.pdf');
+        final id = (await cache.getPendingUploads()).single.id;
+        await ageRow(id, const Duration(days: 31));
+        await ageExpiry(id, const Duration(hours: 25));
+        await drain();
+        expect(await File(path).exists(), isFalse);
+
+        await cache.resetUploadForRetry(id);
+        await drain();
+
+        // decideUpload already handles a queued row whose file is gone — this
+        // proves retry does not crash or fabricate a file, only that the row
+        // stays a normal, actionable failure.
+        final row = (await cache.getPendingUploads()).single;
+        expect(row.lastError, contains('no longer available'));
+      },
+    );
+
+    test(
+      'retrying between the two observations resets the confirmation',
+      () async {
+        // Without clearing expiredAt on retry, a row that expires again shortly
+        // after a retry would already read as "confirmed" and lose its file on
+        // the very next sweep — the exact skip this window exists to prevent.
+        final path = await queuedFile('retried-before-confirming.pdf');
+        final id = (await cache.getPendingUploads()).single.id;
+        await ageRow(id, const Duration(days: 31));
+        await drain();
+        expect((await cache.getPendingUploads()).single.expiredAt, isNotNull);
+
+        await cache.resetUploadForRetry(id);
+        await ageRow(id, const Duration(days: 31));
+
+        await drain();
+
+        final row = (await cache.getPendingUploads()).single;
+        expect(
+          row.expiredAt,
+          isNotNull,
+          reason: 'expiry is observed again, freshly, after the reset',
+        );
+        expect(
+          await File(path).exists(),
+          isTrue,
+          reason: 'a freshly reset row needs its own confirmation window',
+        );
+      },
+    );
+  });
+
   test('drains without a server configured are a no-op, not a crash', () async {
     final path = await queuedFile('waiting.pdf');
     final offline = ProviderContainer(
@@ -734,7 +977,10 @@ void main() {
       completes,
     );
     expect(await cache.getPendingUploads(), hasLength(1));
-    expect(await File(path).exists(), isTrue,
-        reason: 'a row still inside its retention window keeps its file');
+    expect(
+      await File(path).exists(),
+      isTrue,
+      reason: 'a row still inside its retention window keeps its file',
+    );
   });
 }

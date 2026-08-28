@@ -44,8 +44,7 @@ class UploadQueueService extends _$UploadQueueService {
     // blip happened to fire — configuring the server, or simply relaunching
     // the app, has to be enough to flush it.
     ref.listen(authStateProvider, (previous, next) {
-      final wasAuthenticated =
-          previous?.valueOrNull?.isAuthenticated ?? false;
+      final wasAuthenticated = previous?.valueOrNull?.isAuthenticated ?? false;
       final isAuthenticated = next.valueOrNull?.isAuthenticated ?? false;
       if (!wasAuthenticated && isAuthenticated) {
         // Deferred a turn on purpose. dioProvider throws while unauthenticated,
@@ -74,45 +73,85 @@ class UploadQueueService extends _$UploadQueueService {
   /// The last one is why the sweep runs before the API is resolved rather than
   /// as a guard inside the upload loop.
   ///
-  /// Expiring a row records an outcome. It does NOT delete the file, which is
-  /// the user's only copy of that document — app-documents storage is not
-  /// evictable, so those bytes now accumulate until the user clears app data.
-  /// That is a deliberate trade, and it is the wrong way round long-term:
+  /// Expiring a row records an outcome, visible on the upload queue screen
+  /// with its `lastError`, Retry and Delete — that screen shipped in v1.2.0,
+  /// which is what makes releasing the file here defensible: a row the sweep
+  /// got wrong is no longer a silent, permanent loss, it is a row the user can
+  /// see and undo with Retry.
   ///
-  ///  - [DateTime.now] is not monotonic. This compares two wall-clock samples
-  ///    taken up to 30 days apart with no sanity check on either, so a device
-  ///    clock jump can expire a row that is days old — and a [queuedAt]
-  ///    stamped while the clock ran ahead makes the difference negative, so
-  ///    that row never expires at all.
-  ///  - A plausibility heuristic cannot fix the first case: a 45-day forward
-  ///    jump is indistinguishable from 45 days elapsed against a 30-day
-  ///    window, so any threshold narrows the hole without closing it.
-  ///  - There is no queue UI, so the user is never told any of this happens.
-  ///
-  /// Deleting on a timer you cannot trust, with no way to warn anyone, is how
-  /// a document disappears with no trace. Keeping the bytes makes a clock jump
-  /// cost storage instead of the document. Once the queue is visible — and can
-  /// show a failed row, its `lastError`, and offer retry or delete — releasing
-  /// the file here becomes defensible again.
+  /// [DateTime.now] is still not monotonic, and that risk survives the queue
+  /// screen: a device clock jump can make a row LOOK 30 days old when it is
+  /// really hours old, and the file itself does not come back just because the
+  /// user can now see what happened to it. [_confirmationWindow] is the
+  /// mitigation — see its doc for what it does and does not close.
   static const _retention = Duration(days: 30);
 
-  /// Gives up on a row that has outlived [_retention].
+  /// How long a row must stay observed-expired before its file is released.
   ///
-  /// Returns true when the row was handled and the caller should move on. Both
-  /// the row and its file are kept: the row because deleting it is how a
-  /// document disappears with no trace, the file because it IS the document.
-  /// See [_retention] for why nothing is deleted here yet.
+  /// [_giveUpIfExpired] never releases a file on the same sweep that first
+  /// notices a row has outlived [_retention] — it only records `expiredAt` and
+  /// stops. The file is released on a LATER sweep, once `expiredAt` is itself
+  /// at least this old.
+  ///
+  /// This defeats a single bad [DateTime.now] read: one glitched sample marks
+  /// a row failed (recoverable — Retry clears it) but cannot delete anything,
+  /// because deletion needs a second, later sample that still agrees. It does
+  /// NOT defeat a clock that is wrong and stays wrong: two consistent-but-wrong
+  /// readings 24 hours apart still agree with each other. A 45-day forward
+  /// jump is indistinguishable from 45 days elapsed either way — this narrows
+  /// that hole to a sustained clock fault, it does not close it.
+  static const _confirmationWindow = Duration(hours: 24);
+
+  /// Gives up on a row that has outlived [_retention], and releases its file
+  /// once that has held for a further [_confirmationWindow].
+  ///
+  /// Returns true when the row was handled and the caller should move on. The
+  /// row itself is never deleted here — only its file, and only once — because
+  /// deleting the row too is how a document disappears with no trace.
   Future<bool> _giveUpIfExpired(
     CacheRepository cache,
     PendingUpload upload,
   ) async {
-    if (DateTime.now().difference(upload.queuedAt) < _retention) return false;
-    if (!upload.isFailed) {
-      await cache.markUploadFailed(
+    final now = DateTime.now();
+    if (now.difference(upload.queuedAt) < _retention) return false;
+
+    final expiredAt = upload.expiredAt;
+    if (expiredAt == null) {
+      // First sweep to see this row past retention. Record it and stop — see
+      // [_confirmationWindow] for why nothing is released yet.
+      await cache.markUploadExpired(
         upload.id,
+        now,
         'Gave up after ${_retention.inDays} days without reaching the server.',
       );
+      return true;
     }
+
+    // Not confirmed yet: either this sweep runs on a clock that looks earlier
+    // than the one that recorded expiredAt (untrustworthy either way), or not
+    // enough time has passed since the first observation.
+    if (now.isBefore(expiredAt) ||
+        now.difference(expiredAt) < _confirmationWindow) {
+      return true;
+    }
+
+    if (!await File(upload.filePath).exists()) {
+      // Already released on a previous sweep, or never had a file. Nothing to
+      // do — avoids rewriting the row on every sweep forever.
+      return true;
+    }
+
+    final store = await ref.read(pendingUploadStoreProvider.future);
+    try {
+      await store.discard(upload.filePath);
+    } on FileSystemException catch (_) {
+      // Already gone; nothing left to release.
+    }
+    await cache.markUploadFailed(
+      upload.id,
+      'This file sat in the upload queue for over ${_retention.inDays} days '
+      'without reaching the server, and has been deleted from this device.',
+    );
     return true;
   }
 

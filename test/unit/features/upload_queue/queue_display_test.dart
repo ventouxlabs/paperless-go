@@ -35,32 +35,40 @@ void main() {
 
     test('a row that has failed an attempt is retrying', () {
       expect(
-        queueRowStatus(row(retryCount: 2),
-            activeServer: 'https://paperless.example.com'),
+        queueRowStatus(
+          row(retryCount: 2),
+          activeServer: 'https://paperless.example.com',
+        ),
         QueueRowStatus.retrying,
       );
     });
 
     test('terminal failure outranks everything else', () {
       expect(
-        queueRowStatus(row(isFailed: true, retryCount: 5),
-            activeServer: 'https://paperless.example.com'),
+        queueRowStatus(
+          row(isFailed: true, retryCount: 5),
+          activeServer: 'https://paperless.example.com',
+        ),
         QueueRowStatus.failed,
       );
     });
 
     test('a row for a different server is reported as such', () {
       expect(
-        queueRowStatus(row(serverUrl: 'https://other.example.com'),
-            activeServer: 'https://paperless.example.com'),
+        queueRowStatus(
+          row(serverUrl: 'https://other.example.com'),
+          activeServer: 'https://paperless.example.com',
+        ),
         QueueRowStatus.otherServer,
       );
     });
 
     test('a row with no server at all is legacy, not other-server', () {
       expect(
-        queueRowStatus(row(serverUrl: null),
-            activeServer: 'https://paperless.example.com'),
+        queueRowStatus(
+          row(serverUrl: null),
+          activeServer: 'https://paperless.example.com',
+        ),
         QueueRowStatus.legacy,
       );
     });
@@ -68,10 +76,7 @@ void main() {
     test('signed out, rows are waiting rather than stranded elsewhere', () {
       // Signing out must not relabel the whole queue as "queued for another
       // server" — alarming, and untrue: they are waiting for a session.
-      expect(
-        queueRowStatus(row(), activeServer: null),
-        QueueRowStatus.waiting,
-      );
+      expect(queueRowStatus(row(), activeServer: null), QueueRowStatus.waiting);
     });
 
     test('only failed and legacy rows ask for attention', () {
@@ -86,7 +91,8 @@ void main() {
   group('queueErrorDetail', () {
     test('a stringified exception is worth expanding', () {
       // A self-hoster debugging their own server wants this.
-      const raw = 'DioException [connectionError]: SocketException: '
+      const raw =
+          'DioException [connectionError]: SocketException: '
           'Failed host lookup: paperless.private.lan';
       expect(queueErrorDetail(raw), raw);
     });
@@ -100,11 +106,19 @@ void main() {
       );
       expect(
         queueErrorDetail(
-            'The queued file is no longer available on this device.'),
+          'The queued file is no longer available on this device.',
+        ),
         isNull,
       );
       expect(
         queueErrorDetail('The queued tags for this document are unreadable.'),
+        isNull,
+      );
+      expect(
+        queueErrorDetail(
+          'This file sat in the upload queue for over 30 days without '
+          'reaching the server, and has been deleted from this device.',
+        ),
         isNull,
       );
     });
@@ -124,7 +138,8 @@ void main() {
     test('an unreachable server reads as unreachable', () {
       expect(
         queueErrorSummary(
-            "DioException [connectionError]: SocketException: Connection refused"),
+          "DioException [connectionError]: SocketException: Connection refused",
+        ),
         'Could not reach the server.',
       );
     });
@@ -136,10 +151,29 @@ void main() {
       );
     });
 
+    test(
+      'the released-file message says the file is gone, not just given up',
+      () {
+        // A row that reaches this state has actually lost its file, not just
+        // stopped retrying — the generic retention summary would say less than
+        // is true.
+        expect(
+          queueErrorSummary(
+            'This file sat in the upload queue for over 30 days without '
+            'reaching the server, and has been deleted from this device.',
+          ),
+          'Stopped trying after waiting too long to reach it, and the file was '
+          'deleted from this device to free up storage.',
+        );
+      },
+    );
+
     test('a missing file reads as a missing file', () {
       expect(
-        queueErrorSummary('The queued file is no longer available on this '
-            'device.'),
+        queueErrorSummary(
+          'The queued file is no longer available on this '
+          'device.',
+        ),
         'The file is no longer on this device.',
       );
     });
@@ -151,7 +185,8 @@ void main() {
     test('never echoes the raw error, which carries the server URL', () {
       // The stored string is a DioException dump including the full request
       // URL. The summary is what lands on the card, so it must not carry it.
-      const raw = 'DioException [badResponse]: '
+      const raw =
+          'DioException [badResponse]: '
           'https://paperless.private.example.com/api/documents/post_document/';
       final summary = queueErrorSummary(raw);
       expect(summary, isNotNull);

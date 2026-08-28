@@ -7,7 +7,7 @@ part of 'upload_queue_service.dart';
 // **************************************************************************
 
 String _$uploadQueueServiceHash() =>
-    r'91a5374171b6e0a51209f30f37a0d70ceafbca2d';
+    r'3c66ec66901c4ad3c6c064c8d610c658f330e618';
 
 /// See also [UploadQueueService].
 @ProviderFor(UploadQueueService)

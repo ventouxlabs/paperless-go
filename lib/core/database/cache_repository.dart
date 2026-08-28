@@ -32,11 +32,13 @@ class CacheRepository {
       batch.deleteAll(_db.cachedTags);
       batch.insertAll(
         _db.cachedTags,
-        tags.entries.map((e) => CachedTagsCompanion.insert(
-              id: Value(e.key),
-              jsonData: jsonEncode(e.value.toJson()),
-              cachedAt: DateTime.now(),
-            )),
+        tags.entries.map(
+          (e) => CachedTagsCompanion.insert(
+            id: Value(e.key),
+            jsonData: jsonEncode(e.value.toJson()),
+            cachedAt: DateTime.now(),
+          ),
+        ),
       );
     });
   }
@@ -48,7 +50,8 @@ class CacheRepository {
     return {
       for (final row in rows)
         row.id: Correspondent.fromJson(
-            jsonDecode(row.jsonData) as Map<String, dynamic>),
+          jsonDecode(row.jsonData) as Map<String, dynamic>,
+        ),
     };
   }
 
@@ -57,11 +60,13 @@ class CacheRepository {
       batch.deleteAll(_db.cachedCorrespondents);
       batch.insertAll(
         _db.cachedCorrespondents,
-        items.entries.map((e) => CachedCorrespondentsCompanion.insert(
-              id: Value(e.key),
-              jsonData: jsonEncode(e.value.toJson()),
-              cachedAt: DateTime.now(),
-            )),
+        items.entries.map(
+          (e) => CachedCorrespondentsCompanion.insert(
+            id: Value(e.key),
+            jsonData: jsonEncode(e.value.toJson()),
+            cachedAt: DateTime.now(),
+          ),
+        ),
       );
     });
   }
@@ -73,7 +78,8 @@ class CacheRepository {
     return {
       for (final row in rows)
         row.id: DocumentType.fromJson(
-            jsonDecode(row.jsonData) as Map<String, dynamic>),
+          jsonDecode(row.jsonData) as Map<String, dynamic>,
+        ),
     };
   }
 
@@ -82,11 +88,13 @@ class CacheRepository {
       batch.deleteAll(_db.cachedDocumentTypes);
       batch.insertAll(
         _db.cachedDocumentTypes,
-        items.entries.map((e) => CachedDocumentTypesCompanion.insert(
-              id: Value(e.key),
-              jsonData: jsonEncode(e.value.toJson()),
-              cachedAt: DateTime.now(),
-            )),
+        items.entries.map(
+          (e) => CachedDocumentTypesCompanion.insert(
+            id: Value(e.key),
+            jsonData: jsonEncode(e.value.toJson()),
+            cachedAt: DateTime.now(),
+          ),
+        ),
       );
     });
   }
@@ -98,7 +106,8 @@ class CacheRepository {
     return {
       for (final row in rows)
         row.id: StoragePath.fromJson(
-            jsonDecode(row.jsonData) as Map<String, dynamic>),
+          jsonDecode(row.jsonData) as Map<String, dynamic>,
+        ),
     };
   }
 
@@ -107,11 +116,13 @@ class CacheRepository {
       batch.deleteAll(_db.cachedStoragePaths);
       batch.insertAll(
         _db.cachedStoragePaths,
-        items.entries.map((e) => CachedStoragePathsCompanion.insert(
-              id: Value(e.key),
-              jsonData: jsonEncode(e.value.toJson()),
-              cachedAt: DateTime.now(),
-            )),
+        items.entries.map(
+          (e) => CachedStoragePathsCompanion.insert(
+            id: Value(e.key),
+            jsonData: jsonEncode(e.value.toJson()),
+            cachedAt: DateTime.now(),
+          ),
+        ),
       );
     });
   }
@@ -121,8 +132,11 @@ class CacheRepository {
   Future<List<SavedView>> getCachedSavedViews() async {
     final rows = await _db.select(_db.cachedSavedViews).get();
     return rows
-        .map((row) => SavedView.fromJson(
-            jsonDecode(row.jsonData) as Map<String, dynamic>))
+        .map(
+          (row) => SavedView.fromJson(
+            jsonDecode(row.jsonData) as Map<String, dynamic>,
+          ),
+        )
         .toList();
   }
 
@@ -131,11 +145,13 @@ class CacheRepository {
       batch.deleteAll(_db.cachedSavedViews);
       batch.insertAll(
         _db.cachedSavedViews,
-        items.map((e) => CachedSavedViewsCompanion.insert(
-              id: Value(e.id),
-              jsonData: jsonEncode(e.toJson()),
-              cachedAt: DateTime.now(),
-            )),
+        items.map(
+          (e) => CachedSavedViewsCompanion.insert(
+            id: Value(e.id),
+            jsonData: jsonEncode(e.toJson()),
+            cachedAt: DateTime.now(),
+          ),
+        ),
       );
     });
   }
@@ -147,7 +163,8 @@ class CacheRepository {
     return {
       for (final row in rows)
         row.id: CustomField.fromJson(
-            jsonDecode(row.jsonData) as Map<String, dynamic>),
+          jsonDecode(row.jsonData) as Map<String, dynamic>,
+        ),
     };
   }
 
@@ -156,11 +173,13 @@ class CacheRepository {
       batch.deleteAll(_db.cachedCustomFields);
       batch.insertAll(
         _db.cachedCustomFields,
-        items.entries.map((e) => CachedCustomFieldsCompanion.insert(
-              id: Value(e.key),
-              jsonData: jsonEncode(e.value.toJson()),
-              cachedAt: DateTime.now(),
-            )),
+        items.entries.map(
+          (e) => CachedCustomFieldsCompanion.insert(
+            id: Value(e.key),
+            jsonData: jsonEncode(e.value.toJson()),
+            cachedAt: DateTime.now(),
+          ),
+        ),
       );
     });
   }
@@ -170,8 +189,11 @@ class CacheRepository {
   Future<List<Workflow>> getCachedWorkflows() async {
     final rows = await _db.select(_db.cachedWorkflows).get();
     return rows
-        .map((row) => Workflow.fromJson(
-            jsonDecode(row.jsonData) as Map<String, dynamic>))
+        .map(
+          (row) => Workflow.fromJson(
+            jsonDecode(row.jsonData) as Map<String, dynamic>,
+          ),
+        )
         .toList();
   }
 
@@ -180,11 +202,13 @@ class CacheRepository {
       batch.deleteAll(_db.cachedWorkflows);
       batch.insertAll(
         _db.cachedWorkflows,
-        items.map((e) => CachedWorkflowsCompanion.insert(
-              id: Value(e.id),
-              jsonData: jsonEncode(e.toJson()),
-              cachedAt: DateTime.now(),
-            )),
+        items.map(
+          (e) => CachedWorkflowsCompanion.insert(
+            id: Value(e.id),
+            jsonData: jsonEncode(e.toJson()),
+            cachedAt: DateTime.now(),
+          ),
+        ),
       );
     });
   }
@@ -201,17 +225,21 @@ class CacheRepository {
     List<int>? tags,
     DateTime? created,
   }) async {
-    await _db.into(_db.pendingUploads).insert(PendingUploadsCompanion.insert(
-          filePath: filePath,
-          filename: filename,
-          serverUrl: Value(serverUrl),
-          title: Value(title),
-          correspondent: Value(correspondent),
-          documentType: Value(documentType),
-          tagsJson: Value(tags != null ? jsonEncode(tags) : null),
-          created: Value(created),
-          queuedAt: DateTime.now(),
-        ));
+    await _db
+        .into(_db.pendingUploads)
+        .insert(
+          PendingUploadsCompanion.insert(
+            filePath: filePath,
+            filename: filename,
+            serverUrl: Value(serverUrl),
+            title: Value(title),
+            correspondent: Value(correspondent),
+            documentType: Value(documentType),
+            tagsJson: Value(tags != null ? jsonEncode(tags) : null),
+            created: Value(created),
+            queuedAt: DateTime.now(),
+          ),
+        );
   }
 
   /// Decodes queued rows one at a time, skipping any the mapper rejects.
@@ -256,8 +284,7 @@ class CacheRepository {
   /// than leaving the user to wonder where their storage went.
   Future<int> countUnreadablePendingUploads() async {
     final raw = await _db
-        .customSelect(_pendingUploadsByIdSql,
-            readsFrom: {_db.pendingUploads})
+        .customSelect(_pendingUploadsByIdSql, readsFrom: {_db.pendingUploads})
         .get();
     return raw.length - _decodeUploads(raw).length;
   }
@@ -276,9 +303,11 @@ class CacheRepository {
   /// strand the row behind it" cannot be written when there is no defined
   /// behind.
   Future<List<PendingUpload>> getPendingUploads() async {
-    return _decodeUploads(await _db
-        .customSelect(_pendingUploadsByIdSql, readsFrom: {_db.pendingUploads})
-        .get());
+    return _decodeUploads(
+      await _db
+          .customSelect(_pendingUploadsByIdSql, readsFrom: {_db.pendingUploads})
+          .get(),
+    );
   }
 
   /// Live view of the queue, oldest first, for the queue screen and its badge.
@@ -309,44 +338,68 @@ class CacheRepository {
   /// has just said they want this document delivered, so the countdown to
   /// giving up on it starts again from now.
   Future<void> resetUploadForRetry(int id) async {
-    await (_db.update(_db.pendingUploads)..where((t) => t.id.equals(id)))
-        .write(PendingUploadsCompanion(
-      isFailed: const Value(false),
-      retryCount: const Value(0),
-      lastError: const Value(null),
-      queuedAt: Value(DateTime.now()),
-    ));
+    await (_db.update(_db.pendingUploads)..where((t) => t.id.equals(id))).write(
+      PendingUploadsCompanion(
+        isFailed: const Value(false),
+        retryCount: const Value(0),
+        lastError: const Value(null),
+        // Clears the retention sweep's memory of this row too — otherwise a row
+        // that expires again after a retry would be eligible for immediate file
+        // release, skipping the confirmation window meant to guard against a
+        // clock glitch.
+        expiredAt: const Value(null),
+        queuedAt: Value(DateTime.now()),
+      ),
+    );
   }
 
   /// One queued row, or null when it has since been removed.
   Future<PendingUpload?> getPendingUpload(int id) async {
-    return (_db.select(_db.pendingUploads)..where((t) => t.id.equals(id)))
-        .getSingleOrNull();
+    return (_db.select(
+      _db.pendingUploads,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
   }
 
   Future<List<PendingUpload>> getFailedUploads() async {
-    return (_db.select(_db.pendingUploads)
-          ..where((t) => t.isFailed.equals(true)))
-        .get();
+    return (_db.select(
+      _db.pendingUploads,
+    )..where((t) => t.isFailed.equals(true))).get();
   }
 
   Future<void> removePendingUpload(int id) async {
-    await (_db.delete(_db.pendingUploads)
-          ..where((t) => t.id.equals(id)))
-        .go();
+    await (_db.delete(_db.pendingUploads)..where((t) => t.id.equals(id))).go();
   }
 
   /// Marks an upload terminally failed without consuming a retry, for failures
   /// that retrying cannot fix (e.g. the queued file is gone). The row is kept
-  /// rather than deleted so the failure stays on the record — note there is no
-  /// queue UI yet, so today that record is only reachable via
-  /// [getFailedUploads] and is not surfaced to the user.
+  /// rather than deleted so the failure stays on the record, visible on the
+  /// upload queue screen with Retry and Delete.
   Future<void> markUploadFailed(int id, String error) async {
-    await (_db.update(_db.pendingUploads)..where((t) => t.id.equals(id)))
-        .write(PendingUploadsCompanion(
-      lastError: Value(error),
-      isFailed: const Value(true),
-    ));
+    await (_db.update(_db.pendingUploads)..where((t) => t.id.equals(id))).write(
+      PendingUploadsCompanion(
+        lastError: Value(error),
+        isFailed: const Value(true),
+      ),
+    );
+  }
+
+  /// Records that the retention sweep has observed [id] past its window, for
+  /// the first time, without releasing its file yet.
+  ///
+  /// See `UploadQueueService._giveUpIfExpired`: the file is only released on a
+  /// later sweep, once [expiredAt] is itself far enough in the past.
+  Future<void> markUploadExpired(
+    int id,
+    DateTime expiredAt,
+    String error,
+  ) async {
+    await (_db.update(_db.pendingUploads)..where((t) => t.id.equals(id))).write(
+      PendingUploadsCompanion(
+        lastError: Value(error),
+        isFailed: const Value(true),
+        expiredAt: Value(expiredAt),
+      ),
+    );
   }
 
   /// Records why an attempt failed without counting it against the retry
@@ -354,8 +407,9 @@ class CacheRepository {
   /// unreachable, not signed in — where consuming a retry would let five
   /// launches in a tunnel terminally fail a perfectly good upload.
   Future<void> recordUploadError(int id, String error) async {
-    await (_db.update(_db.pendingUploads)..where((t) => t.id.equals(id)))
-        .write(PendingUploadsCompanion(lastError: Value(error)));
+    await (_db.update(_db.pendingUploads)..where((t) => t.id.equals(id))).write(
+      PendingUploadsCompanion(lastError: Value(error)),
+    );
   }
 
   /// Records a failed upload attempt. Once [maxRetries] is reached the
@@ -366,18 +420,19 @@ class CacheRepository {
     String error, {
     required int maxRetries,
   }) async {
-    final row = await (_db.select(_db.pendingUploads)
-          ..where((t) => t.id.equals(id)))
-        .getSingleOrNull();
+    final row = await (_db.select(
+      _db.pendingUploads,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
     // Already removed (a concurrent drain finished it) — nothing to record.
     if (row == null) return;
     final newRetryCount = row.retryCount + 1;
-    await (_db.update(_db.pendingUploads)..where((t) => t.id.equals(id)))
-        .write(PendingUploadsCompanion(
-      retryCount: Value(newRetryCount),
-      lastError: Value(error),
-      isFailed: Value(newRetryCount >= maxRetries),
-    ));
+    await (_db.update(_db.pendingUploads)..where((t) => t.id.equals(id))).write(
+      PendingUploadsCompanion(
+        retryCount: Value(newRetryCount),
+        lastError: Value(error),
+        isFailed: Value(newRetryCount >= maxRetries),
+      ),
+    );
   }
 
   // Clear

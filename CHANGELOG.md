@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- An upload stuck in the queue for over 30 days without reaching the server now has its file removed from this device, freeing the storage it was holding. This only happens once the queue screen (Settings > Upload queue) can show you it happened, and only after two independent checks a day apart agree the upload is genuinely that old — a single clock hiccup on the device cannot delete anything. Previously the file was kept forever, growing unbounded
+
 ## [1.2.2] - 2026-08-25
 
 ### Fixed

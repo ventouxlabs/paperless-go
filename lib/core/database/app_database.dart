@@ -96,6 +96,16 @@ class PendingUploads extends Table {
   /// account B. Nullable only because rows predating this column exist; the
   /// drain refuses to send those rather than guess.
   TextColumn get serverUrl => text().nullable()();
+
+  /// When the retention sweep first observed this row past its window, or null
+  /// if it never has been.
+  ///
+  /// Deliberately separate from `queuedAt`: the file is not released the
+  /// moment a row is first seen expired, only on a later sweep once this
+  /// timestamp itself is far enough in the past. See
+  /// `UploadQueueService._giveUpIfExpired` for why — in short, a single bad
+  /// `DateTime.now()` read must not be enough to destroy a document.
+  DateTimeColumn get expiredAt => dateTime().nullable()();
 }
 
 class LockedDocuments extends Table {
@@ -118,6 +128,7 @@ class AiEdits extends Table {
   TextColumn get fieldName => text()();
   TextColumn get oldValue => text().nullable()();
   TextColumn get newValue => text().nullable()();
+
   /// Source: 'ocr_suggestion' or 'chat'
   TextColumn get source => text()();
   DateTimeColumn get appliedAt => dateTime()();
@@ -131,26 +142,28 @@ class PendingEdits extends Table {
   DateTimeColumn get queuedAt => dateTime()();
 }
 
-@DriftDatabase(tables: [
-  CachedDocuments,
-  CachedTags,
-  CachedCorrespondents,
-  CachedDocumentTypes,
-  CachedStoragePaths,
-  CachedSavedViews,
-  CachedCustomFields,
-  CachedWorkflows,
-  PendingUploads,
-  AiEdits,
-  LockedDocuments,
-  DocumentTemplates,
-  PendingEdits,
-])
+@DriftDatabase(
+  tables: [
+    CachedDocuments,
+    CachedTags,
+    CachedCorrespondents,
+    CachedDocumentTypes,
+    CachedStoragePaths,
+    CachedSavedViews,
+    CachedCustomFields,
+    CachedWorkflows,
+    PendingUploads,
+    AiEdits,
+    LockedDocuments,
+    DocumentTemplates,
+    PendingEdits,
+  ],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -175,6 +188,9 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 8) {
         await migrator.addColumn(pendingUploads, pendingUploads.serverUrl);
+      }
+      if (from < 9) {
+        await migrator.addColumn(pendingUploads, pendingUploads.expiredAt);
       }
     },
   );

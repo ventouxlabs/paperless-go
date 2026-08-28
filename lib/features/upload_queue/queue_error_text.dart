@@ -21,8 +21,13 @@ String? queueErrorSummary(String? rawError) {
 
   // Ordered most-specific first: a DioException wrapping a SocketException
   // matches several of these, and "could not reach the server" is the more
-  // useful of the two readings.
+  // useful of the two readings. The two retention messages also need this
+  // ordering — 'has been deleted from this device' must be checked before the
+  // generic 'Gave up after' match would otherwise never fire.
   const patterns = <String, String>{
+    'has been deleted from this device':
+        'Stopped trying after waiting too long to reach it, and the file was '
+        'deleted from this device to free up storage.',
     'Gave up after': 'Stopped trying after waiting too long to reach it.',
     'no longer available': 'The file is no longer on this device.',
     'unreadable': 'The saved tags for this document could not be read.',
@@ -52,6 +57,7 @@ String? queueErrorSummary(String? rawError) {
 /// slightly different words — which is exactly how it read on a real device.
 const _ownMessages = [
   'Gave up after',
+  'has been deleted from this device',
   'The queued file is no longer available',
   'The queued tags for this document are unreadable',
 ];

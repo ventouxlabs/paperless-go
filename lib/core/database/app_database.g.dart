@@ -2144,6 +2144,17 @@ class $PendingUploadsTable extends PendingUploads
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _expiredAtMeta = const VerificationMeta(
+    'expiredAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> expiredAt = GeneratedColumn<DateTime>(
+    'expired_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2159,6 +2170,7 @@ class $PendingUploadsTable extends PendingUploads
     lastError,
     isFailed,
     serverUrl,
+    expiredAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2259,6 +2271,12 @@ class $PendingUploadsTable extends PendingUploads
         serverUrl.isAcceptableOrUnknown(data['server_url']!, _serverUrlMeta),
       );
     }
+    if (data.containsKey('expired_at')) {
+      context.handle(
+        _expiredAtMeta,
+        expiredAt.isAcceptableOrUnknown(data['expired_at']!, _expiredAtMeta),
+      );
+    }
     return context;
   }
 
@@ -2320,6 +2338,10 @@ class $PendingUploadsTable extends PendingUploads
         DriftSqlType.string,
         data['${effectivePrefix}server_url'],
       ),
+      expiredAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}expired_at'],
+      ),
     );
   }
 
@@ -2351,6 +2373,16 @@ class PendingUpload extends DataClass implements Insertable<PendingUpload> {
   /// account B. Nullable only because rows predating this column exist; the
   /// drain refuses to send those rather than guess.
   final String? serverUrl;
+
+  /// When the retention sweep first observed this row past its window, or null
+  /// if it never has been.
+  ///
+  /// Deliberately separate from `queuedAt`: the file is not released the
+  /// moment a row is first seen expired, only on a later sweep once this
+  /// timestamp itself is far enough in the past. See
+  /// `UploadQueueService._giveUpIfExpired` for why — in short, a single bad
+  /// `DateTime.now()` read must not be enough to destroy a document.
+  final DateTime? expiredAt;
   const PendingUpload({
     required this.id,
     required this.filePath,
@@ -2365,6 +2397,7 @@ class PendingUpload extends DataClass implements Insertable<PendingUpload> {
     this.lastError,
     required this.isFailed,
     this.serverUrl,
+    this.expiredAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2395,6 +2428,9 @@ class PendingUpload extends DataClass implements Insertable<PendingUpload> {
     map['is_failed'] = Variable<bool>(isFailed);
     if (!nullToAbsent || serverUrl != null) {
       map['server_url'] = Variable<String>(serverUrl);
+    }
+    if (!nullToAbsent || expiredAt != null) {
+      map['expired_at'] = Variable<DateTime>(expiredAt);
     }
     return map;
   }
@@ -2428,6 +2464,9 @@ class PendingUpload extends DataClass implements Insertable<PendingUpload> {
       serverUrl: serverUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(serverUrl),
+      expiredAt: expiredAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(expiredAt),
     );
   }
 
@@ -2450,6 +2489,7 @@ class PendingUpload extends DataClass implements Insertable<PendingUpload> {
       lastError: serializer.fromJson<String?>(json['lastError']),
       isFailed: serializer.fromJson<bool>(json['isFailed']),
       serverUrl: serializer.fromJson<String?>(json['serverUrl']),
+      expiredAt: serializer.fromJson<DateTime?>(json['expiredAt']),
     );
   }
   @override
@@ -2469,6 +2509,7 @@ class PendingUpload extends DataClass implements Insertable<PendingUpload> {
       'lastError': serializer.toJson<String?>(lastError),
       'isFailed': serializer.toJson<bool>(isFailed),
       'serverUrl': serializer.toJson<String?>(serverUrl),
+      'expiredAt': serializer.toJson<DateTime?>(expiredAt),
     };
   }
 
@@ -2486,6 +2527,7 @@ class PendingUpload extends DataClass implements Insertable<PendingUpload> {
     Value<String?> lastError = const Value.absent(),
     bool? isFailed,
     Value<String?> serverUrl = const Value.absent(),
+    Value<DateTime?> expiredAt = const Value.absent(),
   }) => PendingUpload(
     id: id ?? this.id,
     filePath: filePath ?? this.filePath,
@@ -2502,6 +2544,7 @@ class PendingUpload extends DataClass implements Insertable<PendingUpload> {
     lastError: lastError.present ? lastError.value : this.lastError,
     isFailed: isFailed ?? this.isFailed,
     serverUrl: serverUrl.present ? serverUrl.value : this.serverUrl,
+    expiredAt: expiredAt.present ? expiredAt.value : this.expiredAt,
   );
   PendingUpload copyWithCompanion(PendingUploadsCompanion data) {
     return PendingUpload(
@@ -2524,6 +2567,7 @@ class PendingUpload extends DataClass implements Insertable<PendingUpload> {
       lastError: data.lastError.present ? data.lastError.value : this.lastError,
       isFailed: data.isFailed.present ? data.isFailed.value : this.isFailed,
       serverUrl: data.serverUrl.present ? data.serverUrl.value : this.serverUrl,
+      expiredAt: data.expiredAt.present ? data.expiredAt.value : this.expiredAt,
     );
   }
 
@@ -2542,7 +2586,8 @@ class PendingUpload extends DataClass implements Insertable<PendingUpload> {
           ..write('retryCount: $retryCount, ')
           ..write('lastError: $lastError, ')
           ..write('isFailed: $isFailed, ')
-          ..write('serverUrl: $serverUrl')
+          ..write('serverUrl: $serverUrl, ')
+          ..write('expiredAt: $expiredAt')
           ..write(')'))
         .toString();
   }
@@ -2562,6 +2607,7 @@ class PendingUpload extends DataClass implements Insertable<PendingUpload> {
     lastError,
     isFailed,
     serverUrl,
+    expiredAt,
   );
   @override
   bool operator ==(Object other) =>
@@ -2579,7 +2625,8 @@ class PendingUpload extends DataClass implements Insertable<PendingUpload> {
           other.retryCount == this.retryCount &&
           other.lastError == this.lastError &&
           other.isFailed == this.isFailed &&
-          other.serverUrl == this.serverUrl);
+          other.serverUrl == this.serverUrl &&
+          other.expiredAt == this.expiredAt);
 }
 
 class PendingUploadsCompanion extends UpdateCompanion<PendingUpload> {
@@ -2596,6 +2643,7 @@ class PendingUploadsCompanion extends UpdateCompanion<PendingUpload> {
   final Value<String?> lastError;
   final Value<bool> isFailed;
   final Value<String?> serverUrl;
+  final Value<DateTime?> expiredAt;
   const PendingUploadsCompanion({
     this.id = const Value.absent(),
     this.filePath = const Value.absent(),
@@ -2610,6 +2658,7 @@ class PendingUploadsCompanion extends UpdateCompanion<PendingUpload> {
     this.lastError = const Value.absent(),
     this.isFailed = const Value.absent(),
     this.serverUrl = const Value.absent(),
+    this.expiredAt = const Value.absent(),
   });
   PendingUploadsCompanion.insert({
     this.id = const Value.absent(),
@@ -2625,6 +2674,7 @@ class PendingUploadsCompanion extends UpdateCompanion<PendingUpload> {
     this.lastError = const Value.absent(),
     this.isFailed = const Value.absent(),
     this.serverUrl = const Value.absent(),
+    this.expiredAt = const Value.absent(),
   }) : filePath = Value(filePath),
        filename = Value(filename),
        queuedAt = Value(queuedAt);
@@ -2642,6 +2692,7 @@ class PendingUploadsCompanion extends UpdateCompanion<PendingUpload> {
     Expression<String>? lastError,
     Expression<bool>? isFailed,
     Expression<String>? serverUrl,
+    Expression<DateTime>? expiredAt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -2657,6 +2708,7 @@ class PendingUploadsCompanion extends UpdateCompanion<PendingUpload> {
       if (lastError != null) 'last_error': lastError,
       if (isFailed != null) 'is_failed': isFailed,
       if (serverUrl != null) 'server_url': serverUrl,
+      if (expiredAt != null) 'expired_at': expiredAt,
     });
   }
 
@@ -2674,6 +2726,7 @@ class PendingUploadsCompanion extends UpdateCompanion<PendingUpload> {
     Value<String?>? lastError,
     Value<bool>? isFailed,
     Value<String?>? serverUrl,
+    Value<DateTime?>? expiredAt,
   }) {
     return PendingUploadsCompanion(
       id: id ?? this.id,
@@ -2689,6 +2742,7 @@ class PendingUploadsCompanion extends UpdateCompanion<PendingUpload> {
       lastError: lastError ?? this.lastError,
       isFailed: isFailed ?? this.isFailed,
       serverUrl: serverUrl ?? this.serverUrl,
+      expiredAt: expiredAt ?? this.expiredAt,
     );
   }
 
@@ -2734,6 +2788,9 @@ class PendingUploadsCompanion extends UpdateCompanion<PendingUpload> {
     if (serverUrl.present) {
       map['server_url'] = Variable<String>(serverUrl.value);
     }
+    if (expiredAt.present) {
+      map['expired_at'] = Variable<DateTime>(expiredAt.value);
+    }
     return map;
   }
 
@@ -2752,7 +2809,8 @@ class PendingUploadsCompanion extends UpdateCompanion<PendingUpload> {
           ..write('retryCount: $retryCount, ')
           ..write('lastError: $lastError, ')
           ..write('isFailed: $isFailed, ')
-          ..write('serverUrl: $serverUrl')
+          ..write('serverUrl: $serverUrl, ')
+          ..write('expiredAt: $expiredAt')
           ..write(')'))
         .toString();
   }
@@ -5298,6 +5356,7 @@ typedef $$PendingUploadsTableCreateCompanionBuilder =
       Value<String?> lastError,
       Value<bool> isFailed,
       Value<String?> serverUrl,
+      Value<DateTime?> expiredAt,
     });
 typedef $$PendingUploadsTableUpdateCompanionBuilder =
     PendingUploadsCompanion Function({
@@ -5314,6 +5373,7 @@ typedef $$PendingUploadsTableUpdateCompanionBuilder =
       Value<String?> lastError,
       Value<bool> isFailed,
       Value<String?> serverUrl,
+      Value<DateTime?> expiredAt,
     });
 
 class $$PendingUploadsTableFilterComposer
@@ -5387,6 +5447,11 @@ class $$PendingUploadsTableFilterComposer
 
   ColumnFilters<String> get serverUrl => $composableBuilder(
     column: $table.serverUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get expiredAt => $composableBuilder(
+    column: $table.expiredAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -5464,6 +5529,11 @@ class $$PendingUploadsTableOrderingComposer
     column: $table.serverUrl,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get expiredAt => $composableBuilder(
+    column: $table.expiredAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PendingUploadsTableAnnotationComposer
@@ -5519,6 +5589,9 @@ class $$PendingUploadsTableAnnotationComposer
 
   GeneratedColumn<String> get serverUrl =>
       $composableBuilder(column: $table.serverUrl, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get expiredAt =>
+      $composableBuilder(column: $table.expiredAt, builder: (column) => column);
 }
 
 class $$PendingUploadsTableTableManager
@@ -5567,6 +5640,7 @@ class $$PendingUploadsTableTableManager
                 Value<String?> lastError = const Value.absent(),
                 Value<bool> isFailed = const Value.absent(),
                 Value<String?> serverUrl = const Value.absent(),
+                Value<DateTime?> expiredAt = const Value.absent(),
               }) => PendingUploadsCompanion(
                 id: id,
                 filePath: filePath,
@@ -5581,6 +5655,7 @@ class $$PendingUploadsTableTableManager
                 lastError: lastError,
                 isFailed: isFailed,
                 serverUrl: serverUrl,
+                expiredAt: expiredAt,
               ),
           createCompanionCallback:
               ({
@@ -5597,6 +5672,7 @@ class $$PendingUploadsTableTableManager
                 Value<String?> lastError = const Value.absent(),
                 Value<bool> isFailed = const Value.absent(),
                 Value<String?> serverUrl = const Value.absent(),
+                Value<DateTime?> expiredAt = const Value.absent(),
               }) => PendingUploadsCompanion.insert(
                 id: id,
                 filePath: filePath,
@@ -5611,6 +5687,7 @@ class $$PendingUploadsTableTableManager
                 lastError: lastError,
                 isFailed: isFailed,
                 serverUrl: serverUrl,
+                expiredAt: expiredAt,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
