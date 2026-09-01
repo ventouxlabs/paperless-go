@@ -310,6 +310,12 @@ class _PaperlessGoAppState extends ConsumerState<PaperlessGoApp>
         setState(() => _isLocked = true);
       }
     }
+    // A share/open-with that arrived via onNewIntent before the app was
+    // fully resumed gets queued by ShareIntentHandler._pushRoute rather than
+    // pushed immediately (see its doc comment) — flush it now that we are.
+    if (state == AppLifecycleState.resumed) {
+      _shareIntentHandler.flushPendingShare();
+    }
   }
 
   @override

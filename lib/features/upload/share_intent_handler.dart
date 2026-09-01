@@ -76,8 +76,10 @@ class ShareIntentHandler {
     _pushRoute(route);
   }
 
-  /// Pushes a share that arrived while logged out. Call once auth state
-  /// transitions from unauthenticated to authenticated.
+  /// Pushes a share that arrived while logged out, or while the app
+  /// lifecycle hadn't settled back to `resumed` yet. Call once auth state
+  /// transitions to authenticated, or once the app lifecycle transitions
+  /// to resumed.
   void flushPendingShare() {
     final route = _pendingRoute;
     if (route == null) return;
@@ -88,6 +90,17 @@ class ShareIntentHandler {
   void _pushRoute(ShareRoute route) {
     final context = _navigatorKey.currentContext;
     if (context == null || !context.mounted) return;
+    // A share/open-with arriving via onNewIntent on a warm resume (task
+    // switched back to via "Open with") reaches here while the app
+    // lifecycle is still `inactive` — measured on a Pixel 9 Pro Fold,
+    // context.push() "succeeds" (no exception, mounted context, a frame
+    // even fires) but the navigation is silently lost by the time the
+    // render pipeline finishes reattaching on resume. Queue it and retry
+    // once resumed, same mechanism #24 uses for the auth-gating case.
+    if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      _pendingRoute = route;
+      return;
+    }
     context.push(route.location, extra: route.extra);
   }
 

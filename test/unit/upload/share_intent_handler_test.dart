@@ -23,6 +23,12 @@ Future<GlobalKey<NavigatorState>> _pumpTestRouter(WidgetTester tester) async {
   );
   await tester.pumpWidget(MaterialApp.router(routerConfig: router));
   await tester.pumpAndSettle();
+  // The test binding's lifecycleState defaults to null (not `resumed`),
+  // which ShareIntentHandler._pushRoute now treats the same as `inactive`
+  // — matching a real running app rather than the binding's unset default.
+  WidgetsBinding.instance.handleAppLifecycleStateChanged(
+    AppLifecycleState.resumed,
+  );
   return navigatorKey;
 }
 
@@ -133,6 +139,45 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('home'), findsOneWidget);
+    });
+
+    // Regression: measured on a Pixel 9 Pro Fold — a share arriving via
+    // onNewIntent on a warm resume (task switched back to via "Open with")
+    // reached _pushRoute while AppLifecycleState was still `inactive`.
+    // context.push() reported success (mounted context, a frame even
+    // fired) but the navigation was silently lost by the time the render
+    // pipeline finished reattaching on resume.
+    testWidgets(
+        'queues a share received before the app lifecycle is resumed, '
+        'flushes once resumed', (tester) async {
+      final navigatorKey = await _pumpTestRouter(tester);
+      addTearDown(
+        () => WidgetsBinding.instance
+            .handleAppLifecycleStateChanged(AppLifecycleState.resumed),
+      );
+      final handler = ShareIntentHandler(navigatorKey, () => true);
+
+      WidgetsBinding.instance
+          .handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      handler.debugHandleSharedFiles([
+        _shared(
+          '/tmp/share_1_invoice.pdf',
+          filename: 'invoice.pdf',
+          mimeType: 'application/pdf',
+        ),
+      ]);
+      await tester.pumpAndSettle();
+
+      expect(find.text('upload screen'), findsNothing);
+      expect(handler.debugPendingRoute, isNotNull);
+
+      WidgetsBinding.instance
+          .handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      handler.flushPendingShare();
+      await tester.pumpAndSettle();
+
+      expect(find.text('upload screen'), findsOneWidget);
+      expect(handler.debugPendingRoute, isNull);
     });
   });
 }
