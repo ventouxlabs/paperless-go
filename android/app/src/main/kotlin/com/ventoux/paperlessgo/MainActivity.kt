@@ -1,6 +1,7 @@
 package com.ventoux.paperlessgo
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -89,9 +90,18 @@ class MainActivity : FlutterFragmentActivity() {
      * (unlike stripDataFromShareIntent for SEND/SEND_MULTIPLE): SharePlugin
      * still reads Intent.data directly off activity.intent for the
      * ACTION_VIEW case, so nulling it here would silently drop the share.
+     *
+     * Filters super's resolved route rather than pre-empting it from
+     * Intent.data directly, so an explicit EXTRA_INITIAL_ROUTE (checked
+     * first by Flutter's own embedding, ahead of Intent.data) is never
+     * discarded just because a content/file URI also happens to be present.
      */
     override fun getInitialRoute(): String? {
-        if (shouldSuppressInitialRoute(intent?.data?.scheme)) return null
-        return super.getInitialRoute()
+        val route = super.getInitialRoute()
+        return if (route != null && shouldSuppressInitialRoute(Uri.parse(route).scheme)) {
+            null
+        } else {
+            route
+        }
     }
 }

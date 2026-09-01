@@ -110,6 +110,12 @@ void main() {
     expect(find.text('Page not found'), findsNothing);
   });
 
+  // This drives GoRouter's defensive /inbox-or-login fallback for a
+  // content:// route directly (bypassing native Android entirely). On a
+  // real device, MainActivity.getInitialRoute() now suppresses this route
+  // before Flutter ever sees it (see SharePlugin.kt's
+  // shouldSuppressInitialRoute) — this test covers the backstop, not the
+  // primary "Open with" path.
   testWidgets(
       'a content:// route while logged out lands on /login, not the '
       'unmatched intermediate "/"', (tester) async {

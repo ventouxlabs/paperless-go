@@ -26,6 +26,17 @@ import java.io.FileOutputStream
 internal enum class ShareSource { EXTRA_STREAM, INTENT_DATA, NONE }
 
 /**
+ * URI schemes that carry an actual shared file, as opposed to a non-file
+ * ACTION_VIEW (e.g. the paperlessgo:// widget deep link). Shared between
+ * [selectSource] and [shouldSuppressInitialRoute] so the two questions —
+ * "is this a file?" and "should Flutter's embedding leave this alone?" —
+ * can never drift apart the way this file's action→source mapping has
+ * three times before (10411c1, 810f061, cade169): a new scheme added to
+ * one and not the other silently reintroduces that class of bug.
+ */
+internal val SHARE_URI_SCHEMES = setOf("content", "file")
+
+/**
  * Decides where to read a shared file's URI(s) from for a given intent action.
  *
  * - SEND / SEND_MULTIPLE: EXTRA_STREAM (share-sheet flow).
@@ -37,7 +48,7 @@ internal enum class ShareSource { EXTRA_STREAM, INTENT_DATA, NONE }
  */
 internal fun selectSource(action: String?, dataScheme: String?): ShareSource = when (action) {
     Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE -> ShareSource.EXTRA_STREAM
-    Intent.ACTION_VIEW -> if (dataScheme == "content" || dataScheme == "file") {
+    Intent.ACTION_VIEW -> if (dataScheme in SHARE_URI_SCHEMES) {
         ShareSource.INTENT_DATA
     } else {
         ShareSource.NONE
@@ -57,10 +68,13 @@ internal fun selectSource(action: String?, dataScheme: String?): ShareSource = w
  * before the actual share lands (see MainActivity.getInitialRoute()).
  * The paperlessgo:// widget deep link is also delivered via Intent.data
  * on an ACTION_VIEW intent, and legitimately needs Flutter's normal
- * routing — so only content/file are suppressed here.
+ * routing — so only content/file are suppressed here. Deliberately
+ * action-agnostic (unlike selectSource): MainActivity.stripDataFromShareIntent
+ * already nulls Intent.data for SEND/SEND_MULTIPLE earlier in the same
+ * lifecycle method, before this ever runs, so no other action can carry a
+ * live content/file Intent.data by the time this is checked.
  */
-internal fun shouldSuppressInitialRoute(scheme: String?): Boolean =
-    scheme == "content" || scheme == "file"
+internal fun shouldSuppressInitialRoute(scheme: String?): Boolean = scheme in SHARE_URI_SCHEMES
 
 /**
  * Whether a share intent has already produced a delivery, from the two signals
