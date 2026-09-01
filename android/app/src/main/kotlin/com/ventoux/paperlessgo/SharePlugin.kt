@@ -46,6 +46,23 @@ internal fun selectSource(action: String?, dataScheme: String?): ShareSource = w
 }
 
 /**
+ * Whether Flutter's default Android embedding should be stopped from
+ * treating the launching Intent's data as an initial deep-link route.
+ *
+ * content/file schemes are real share URIs — SharePlugin (this file) is
+ * the single source of truth for them, delivered over its own
+ * method/event channel. Left alone, Flutter's embedding also reads
+ * Intent.data at startup and pushes it as a route, racing SharePlugin's
+ * own handling and forcing GoRouter through a forced /inbox redirect
+ * before the actual share lands (see MainActivity.getInitialRoute()).
+ * The paperlessgo:// widget deep link is also delivered via Intent.data
+ * on an ACTION_VIEW intent, and legitimately needs Flutter's normal
+ * routing — so only content/file are suppressed here.
+ */
+internal fun shouldSuppressInitialRoute(scheme: String?): Boolean =
+    scheme == "content" || scheme == "file"
+
+/**
  * Whether a share intent has already produced a delivery, from the two signals
  * that survive Activity/engine recreation.
  *

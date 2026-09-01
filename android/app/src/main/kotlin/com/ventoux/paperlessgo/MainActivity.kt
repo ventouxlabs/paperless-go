@@ -81,4 +81,17 @@ class MainActivity : FlutterFragmentActivity() {
             intent.data = null
         }
     }
+
+    /**
+     * Suppresses Flutter's default "Intent.data becomes the initial route"
+     * behavior for content/file share URIs — see [shouldSuppressInitialRoute]
+     * in SharePlugin.kt. Deliberately does NOT touch Intent.data itself
+     * (unlike stripDataFromShareIntent for SEND/SEND_MULTIPLE): SharePlugin
+     * still reads Intent.data directly off activity.intent for the
+     * ACTION_VIEW case, so nulling it here would silently drop the share.
+     */
+    override fun getInitialRoute(): String? {
+        if (shouldSuppressInitialRoute(intent?.data?.scheme)) return null
+        return super.getInitialRoute()
+    }
 }
