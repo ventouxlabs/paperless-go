@@ -2,6 +2,8 @@ package com.ventoux.paperlessgo
 
 import android.content.Intent
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -51,5 +53,37 @@ class SharePluginUriSelectionTest {
     @Test
     fun `null action is ignored`() {
         assertEquals(ShareSource.NONE, selectSource(null, "content"))
+    }
+}
+
+/**
+ * Regression coverage for [shouldSuppressInitialRoute] — whether Flutter's default
+ * Android embedding should be stopped from treating the launching Intent's data as
+ * an initial deep-link route. Left unsuppressed for content/file schemes, an
+ * ACTION_VIEW ("Open with") share races SharePlugin's own channel-based handling:
+ * GoRouter's redirect() sees the raw content://file:// URI as an attempted route and
+ * force-navigates to /inbox before the share actually lands, wiping whatever screen
+ * the user was on. paperlessgo:// (the widget deep link) is also ACTION_VIEW and
+ * must NOT be suppressed — it needs Flutter's normal routing to reach GoRouter.
+ */
+class InitialRouteSuppressionTest {
+    @Test
+    fun `content scheme is suppressed`() {
+        assertTrue(shouldSuppressInitialRoute("content"))
+    }
+
+    @Test
+    fun `file scheme is suppressed`() {
+        assertTrue(shouldSuppressInitialRoute("file"))
+    }
+
+    @Test
+    fun `paperlessgo scheme is not suppressed (widget deep link)`() {
+        assertFalse(shouldSuppressInitialRoute("paperlessgo"))
+    }
+
+    @Test
+    fun `null scheme is not suppressed`() {
+        assertFalse(shouldSuppressInitialRoute(null))
     }
 }
