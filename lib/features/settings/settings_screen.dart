@@ -8,6 +8,7 @@ import '../../core/auth/server_profiles.dart';
 import '../../core/design_tokens.dart';
 import '../upload_queue/upload_queue_notifier.dart';
 import '../../core/services/biometric_service.dart';
+import '../../core/services/export_destination_service.dart';
 import '../ai_chat/chat_notifier.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -22,6 +23,7 @@ class SettingsScreen extends ConsumerWidget {
     final biometricEnabled = ref.watch(biometricLockProvider);
     final profilesState = ref.watch(serverProfilesNotifierProvider);
     final aiUsername = ref.watch(aiChatUsernameProvider);
+    final downloadsDestination = ref.watch(downloadsDestinationProvider);
 
     return Scaffold(
       backgroundColor: tokens.paper,
@@ -135,6 +137,21 @@ class SettingsScreen extends ConsumerWidget {
                 subtitle: const Text('Require authentication on app launch'),
                 value: biometricEnabled,
                 onChanged: (enabled) => _toggleBiometric(context, ref, enabled),
+              ),
+            ],
+          ),
+          _SettingsSection(
+            title: 'Storage',
+            children: [
+              ListTile(
+                leading: Icon(Icons.folder_outlined, color: tokens.inkSoft),
+                title: const Text('Downloads location'),
+                subtitle: _DownloadsLocationSubtitle(
+                  destination: downloadsDestination,
+                  tokens: tokens,
+                ),
+                trailing: const Icon(Icons.edit, size: 18),
+                onTap: () => _chooseDownloadsFolder(context, ref),
               ),
             ],
           ),
@@ -321,6 +338,49 @@ class SettingsScreen extends ConsumerWidget {
       if (!authenticated || !context.mounted) return;
     }
     ref.read(biometricLockProvider.notifier).setEnabled(enabled);
+  }
+
+  Future<void> _chooseDownloadsFolder(
+      BuildContext context, WidgetRef ref) async {
+    final current = ref.read(downloadsDestinationProvider).valueOrNull;
+    if (current != null && current.status != DestinationStatus.unset) {
+      final action = await showModalBottomSheet<String>(
+        context: context,
+        builder: (ctx) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.folder_open_outlined),
+                title: const Text('Choose a different folder'),
+                onTap: () => Navigator.pop(ctx, 'choose'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.folder_off_outlined),
+                title: const Text('Forget this folder'),
+                subtitle: const Text('Downloads will ask each time'),
+                onTap: () => Navigator.pop(ctx, 'forget'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (action == null || !context.mounted) return;
+      if (action == 'forget') {
+        await ref.read(downloadsDestinationProvider.notifier).clear();
+        return;
+      }
+    }
+
+    try {
+      await ref.read(downloadsDestinationProvider.notifier).choose();
+    } on ExportSaveException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message)),
+        );
+      }
+    }
   }
 
   Future<void> _verifyAiConnection(BuildContext context, WidgetRef ref) async {
@@ -556,6 +616,40 @@ class SettingsScreen extends ConsumerWidget {
         });
       }
     });
+  }
+}
+
+/// The truthful state of the downloads folder, including the case where a
+/// folder was chosen but Android has since revoked access to it.
+class _DownloadsLocationSubtitle extends StatelessWidget {
+  const _DownloadsLocationSubtitle({
+    required this.destination,
+    required this.tokens,
+  });
+
+  final AsyncValue<ExportDestination> destination;
+  final AppTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (destination) {
+      AsyncData(:final value) => switch (value.status) {
+          DestinationStatus.ready => Text(value.displayName),
+          DestinationStatus.unset => Text(
+              'Ask each time',
+              style: TextStyle(color: tokens.inkSoft),
+            ),
+          DestinationStatus.unavailable => Text(
+              '${value.displayName} — no longer available, tap to choose again',
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+        },
+      AsyncError() => Text(
+          'Could not check folder access',
+          style: TextStyle(color: Theme.of(context).colorScheme.error),
+        ),
+      _ => Text('Checking…', style: TextStyle(color: tokens.inkSoft)),
+    };
   }
 }
 

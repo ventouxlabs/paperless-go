@@ -75,5 +75,23 @@ class SecureStorageService {
     return int.tryParse(value ?? '') ?? 0;
   }
 
+  // Downloads destination (SAF tree URI + its display name).
+  Future<void> saveDownloadsUri(String uri) =>
+      _storage.write(key: StorageKeys.downloadsUri, value: uri);
+
+  Future<String?> getDownloadsUri() =>
+      _storage.read(key: StorageKeys.downloadsUri);
+
+  Future<void> saveDownloadsName(String name) =>
+      _storage.write(key: StorageKeys.downloadsName, value: name);
+
+  Future<String?> getDownloadsName() =>
+      _storage.read(key: StorageKeys.downloadsName);
+
+  Future<void> clearDownloadsDestination() async {
+    await _storage.delete(key: StorageKeys.downloadsUri);
+    await _storage.delete(key: StorageKeys.downloadsName);
+  }
+
   Future<void> clearAll() => _storage.deleteAll();
 }
