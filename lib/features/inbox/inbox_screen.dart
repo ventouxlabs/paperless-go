@@ -240,6 +240,11 @@ class _CardStackState extends ConsumerState<_CardStack>
       if (previous != null) {
         messenger.showSnackBar(SnackBar(
           content: Text('Filed "${doc.title}"'),
+          // Flutter defaults an action-bearing SnackBar to persist: true
+          // (snack_bar.dart: `persist = persist ?? action != null`) — without
+          // this, the auto-dismiss timer fires but early-returns before
+          // hiding it, and never re-arms, so it stays pinned indefinitely.
+          persist: false,
           action: SnackBarAction(
             label: 'Undo',
             onPressed: () => notifier.undoAccept(doc.id, previous),
