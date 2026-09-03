@@ -23,6 +23,8 @@ import '../../core/models/tag.dart';
 import '../../core/design_tokens.dart';
 import '../../shared/widgets/metadata_sheet.dart';
 import '../../shared/widgets/tag_chip.dart';
+import '../../shared/save_to_folder_action.dart';
+import '../../core/services/export_destination_service.dart';
 import 'ai_edit_trail_notifier.dart';
 import 'document_detail_notifier.dart';
 import 'documents_notifier.dart';
@@ -559,6 +561,11 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
               title: const Text('Compress & Share'),
               onTap: () => Navigator.pop(ctx, 'compress_share'),
             ),
+            ListTile(
+              leading: const Icon(Icons.folder_zip_outlined),
+              title: const Text('Compress & Save'),
+              onTap: () => Navigator.pop(ctx, 'compress_save'),
+            ),
             const Divider(height: 1),
             sectionLabel(ctx, 'Manage'),
             ListTile(
@@ -679,13 +686,20 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
           final path = await ref.read(
             documentDownloadProvider(documentId, title).future,
           );
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Downloaded to $path')),
-            );
-          }
+          if (!context.mounted) break;
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          await saveToFolderWithFallback(
+            context: context,
+            ref: ref,
+            localPaths: [path],
+            fileNames: [
+              '${sanitizeExportName(title, fallback: 'document_$documentId')}'
+                  '.pdf',
+            ],
+          );
         } catch (e) {
           if (context.mounted) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Download failed: ${friendlyApiMessage(e)}')),
             );
@@ -773,6 +787,7 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
           }
         }
       case 'compress_share':
+      case 'compress_save':
         final selectedQuality = await showDialog<CompressionQuality>(
           context: context,
           builder: (ctx) => SimpleDialog(
@@ -798,7 +813,19 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
           );
           if (context.mounted) {
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            await Share.shareXFiles([XFile(outputPath)]);
+            if (action == 'compress_save') {
+              await saveToFolderWithFallback(
+                context: context,
+                ref: ref,
+                localPaths: [outputPath],
+                fileNames: [
+                  '${sanitizeExportName(title, fallback: 'document_$documentId')}'
+                      '_compressed.pdf',
+                ],
+              );
+            } else {
+              await Share.shareXFiles([XFile(outputPath)]);
+            }
           }
         } catch (e) {
           if (context.mounted) {
