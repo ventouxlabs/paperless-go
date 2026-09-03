@@ -12,6 +12,8 @@ import '../../shared/widgets/document_card.dart';
 import '../../shared/widgets/loading_skeleton.dart';
 import '../../shared/widgets/paginated_list_view.dart';
 import '../../shared/widgets/stamp_chip.dart';
+import '../../shared/save_to_folder_action.dart';
+import '../../core/services/export_destination_service.dart';
 import '../../core/design_tokens.dart';
 import '../../core/api/api_error_mapper.dart';
 import 'active_filters_bar.dart';
@@ -70,6 +72,28 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     }
   }
 
+  Future<void> _saveDocument(
+      BuildContext context, WidgetRef ref, int docId, String title) async {
+    try {
+      final path = await ref.read(documentDownloadProvider(docId, title).future);
+      if (!context.mounted) return;
+      await saveToFolderWithFallback(
+        context: context,
+        ref: ref,
+        localPaths: [path],
+        fileNames: [
+          '${sanitizeExportName(title, fallback: 'document_$docId')}.pdf',
+        ],
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save: ${friendlyApiMessage(e)}')),
+        );
+      }
+    }
+  }
+
   Future<void> _showDocumentContextMenu(
     BuildContext context,
     WidgetRef ref,
@@ -87,6 +111,11 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
               onTap: () => Navigator.pop(context, 'share'),
             ),
             ListTile(
+              leading: const Icon(Icons.folder_outlined),
+              title: const Text('Save to folder'),
+              onTap: () => Navigator.pop(context, 'save'),
+            ),
+            ListTile(
               leading: const Icon(Icons.check_box_outline_blank),
               title: const Text('Select'),
               onTap: () => Navigator.pop(context, 'select'),
@@ -98,6 +127,8 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     if (!context.mounted) return;
     if (action == 'share') {
       await _shareDocument(context, ref, doc.id, doc.title);
+    } else if (action == 'save') {
+      await _saveDocument(context, ref, doc.id, doc.title);
     } else if (action == 'select') {
       _toggleSelection(doc.id);
     }
@@ -402,6 +433,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                     onRefresh: () =>
                         ref.read(documentsNotifierProvider.notifier).refresh(),
                     onShare: () => _shareSelected(context, ref),
+                    onSave: () => _saveSelected(context, ref),
                   ),
                 ),
               ),
@@ -431,6 +463,75 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
         ],
       ),
     );
+  }
+
+  Future<bool?> _confirmBulkSave(BuildContext context, int count) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Save documents?'),
+        content: Text(
+          'Saving $count documents requires downloading them all. Continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _saveSelected(BuildContext context, WidgetRef ref) async {
+    final docs = ref.read(documentsNotifierProvider).valueOrNull?.documents ?? [];
+    final selectedDocs = docs.where((d) => _selectedIds.contains(d.id)).toList();
+    if (selectedDocs.isEmpty) return;
+
+    if (selectedDocs.length > 5) {
+      final confirmed = await _confirmBulkSave(context, selectedDocs.length);
+      if (confirmed != true || !context.mounted) return;
+    }
+
+    final paths = <String>[];
+    final names = <String>[];
+    final downloadFailures = <String>[];
+
+    for (final doc in selectedDocs) {
+      try {
+        paths.add(await ref.read(
+          documentDownloadProvider(doc.id, doc.title).future,
+        ));
+        names.add(
+          '${sanitizeExportName(doc.title, fallback: 'document_${doc.id}')}.pdf',
+        );
+      } catch (_) {
+        downloadFailures.add(doc.title);
+      }
+    }
+
+    if (paths.isNotEmpty && context.mounted) {
+      await saveToFolderWithFallback(
+        context: context,
+        ref: ref,
+        localPaths: paths,
+        fileNames: names,
+      );
+      if (context.mounted) _clearSelection();
+    }
+
+    // Reported separately from save failures: these never reached the disk.
+    if (downloadFailures.isNotEmpty && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to download: ${downloadFailures.join(', ')}'),
+        ),
+      );
+    }
   }
 
   Future<void> _shareSelected(BuildContext context, WidgetRef ref) async {

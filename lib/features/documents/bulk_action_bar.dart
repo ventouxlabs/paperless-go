@@ -13,6 +13,7 @@ class BulkActionBar extends ConsumerWidget {
   final VoidCallback onClearSelection;
   final VoidCallback onRefresh;
   final VoidCallback onShare;
+  final VoidCallback onSave;
 
   const BulkActionBar({
     super.key,
@@ -20,6 +21,7 @@ class BulkActionBar extends ConsumerWidget {
     required this.onClearSelection,
     required this.onRefresh,
     required this.onShare,
+    required this.onSave,
   });
 
   @override
@@ -63,6 +65,11 @@ class BulkActionBar extends ConsumerWidget {
               icon: Icons.share_outlined,
               tooltip: 'Share',
               onPressed: onShare,
+            ),
+            _ActionButton(
+              icon: Icons.folder_outlined,
+              tooltip: 'Save to folder',
+              onPressed: onSave,
             ),
             _ActionButton(
               icon: Icons.delete_outline,
