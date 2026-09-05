@@ -195,7 +195,7 @@ class _AnnotateScreenState extends ConsumerState<AnnotateScreen> {
               '_annotated.pdf',
         ],
       );
-    } catch (e) {
+    } on Exception catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
