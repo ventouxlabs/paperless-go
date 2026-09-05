@@ -85,7 +85,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
           '${sanitizeExportName(title, fallback: 'document_$docId')}.pdf',
         ],
       );
-    } catch (e) {
+    } on Exception catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to save: ${friendlyApiMessage(e)}')),
@@ -509,19 +509,27 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
         names.add(
           '${sanitizeExportName(doc.title, fallback: 'document_${doc.id}')}.pdf',
         );
-      } catch (_) {
+      } on Exception {
         downloadFailures.add(doc.title);
       }
     }
 
     if (paths.isNotEmpty && context.mounted) {
-      await saveToFolderWithFallback(
-        context: context,
-        ref: ref,
-        localPaths: paths,
-        fileNames: names,
-      );
-      if (context.mounted) _clearSelection();
+      try {
+        await saveToFolderWithFallback(
+          context: context,
+          ref: ref,
+          localPaths: paths,
+          fileNames: names,
+        );
+        if (context.mounted) _clearSelection();
+      } on Exception catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to save: ${friendlyApiMessage(e)}')),
+          );
+        }
+      }
     }
 
     // Reported separately from save failures: these never reached the disk.

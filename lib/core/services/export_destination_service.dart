@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:saf/saf.dart';
 
 import '../auth/secure_storage.dart';
@@ -125,10 +127,17 @@ ExportDestination resolveDestination({
 
 /// Strips characters that SAF providers reject in a document name.
 ///
-/// Mirrors the sanitisation `documentDownload` applies to the temp file.
+/// A deny-list rather than the word-character allow-list `documentDownload`
+/// used to apply to the temp file: an allow-list erases every non-ASCII
+/// title (`Rechnung Müller` -> `Rechnung Mller`), and that mangled name is
+/// now visible to the user in the folder they picked rather than hidden in
+/// an app-private cache path. Also caps length — some SAF providers reject a
+/// display name past ~255 bytes, and a long title plus a suffix like
+/// `_compressed.pdf` can get there.
 String sanitizeExportName(String title, {required String fallback}) {
-  final safe = title.replaceAll(RegExp(r'[^\w\s-]'), '').trim();
-  return safe.isEmpty ? fallback : safe;
+  final safe = title.replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1F]'), '').trim();
+  final result = safe.isEmpty ? fallback : safe;
+  return result.length > 100 ? result.substring(0, 100) : result;
 }
 
 /// Saves already-downloaded local files into a user-chosen SAF folder.
@@ -143,31 +152,58 @@ class ExportDestinationService {
         _saf = saf ?? Saf();
 
   /// Reads the stored destination and validates it against live OS grants.
+  ///
+  /// A folder was configured (there is a stored [uri]), so a SAF failure
+  /// here is reported as `unavailable`, not `unset` — the UI should say
+  /// "no longer available", not lie that nothing was ever chosen.
   Future<ExportDestination> resolve() async {
     final uri = await _storage.getDownloadsUri();
     if (uri == null || uri.isEmpty) return const ExportDestination.unset();
     final name = await _storage.getDownloadsName();
-    final permissions = await _saf.persistedPermissions();
-    return resolveDestination(
-      storedUri: uri,
-      storedName: name,
-      permissions: permissions,
-    );
+    try {
+      final permissions = await _saf.persistedPermissions();
+      return resolveDestination(
+        storedUri: uri,
+        storedName: name,
+        permissions: permissions,
+      );
+    } on SafException {
+      return ExportDestination.unavailable(uri: uri, name: name);
+    }
   }
 
   /// Prompts for a folder and persists it once the grant is confirmed.
   ///
   /// Returns null if the user cancelled. The plugin swallows a failed
   /// `takePersistableUriPermission`, so the grant is re-read rather than
-  /// assumed from a successful pick.
+  /// assumed from a successful pick. A SAF failure at either platform call
+  /// (picker busy, no DocumentsUI on the device, etc.) is translated to
+  /// [ExportSaveException] rather than escaping raw, since callers only
+  /// handle that type.
   Future<ExportDestination?> chooseFolder() async {
-    final picked = await _saf.pickDirectory();
+    final SafDocumentFile? picked;
+    try {
+      picked = await _saf.pickDirectory();
+    } on SafException catch (e) {
+      throw ExportSaveException(
+        'Could not open the folder picker: ${e.message}',
+      );
+    }
     if (picked == null) return null;
+
+    final List<SafPersistedPermission> permissions;
+    try {
+      permissions = await _saf.persistedPermissions();
+    } on SafException catch (e) {
+      throw ExportSaveException(
+        'Could not confirm folder access: ${e.message}',
+      );
+    }
 
     final resolved = resolveDestination(
       storedUri: picked.uri,
       storedName: picked.name,
-      permissions: await _saf.persistedPermissions(),
+      permissions: permissions,
     );
 
     if (!resolved.isReady) {
@@ -176,12 +212,40 @@ class ExportDestinationService {
       );
     }
 
+    // Release the superseded grant so switching folders doesn't accumulate
+    // persisted permissions against Android's per-package cap.
+    final previousUri = await _storage.getDownloadsUri();
+    if (previousUri != null &&
+        previousUri.isNotEmpty &&
+        SafTreeKey.parse(previousUri) != SafTreeKey.parse(picked.uri)) {
+      try {
+        await _saf.releasePersistedPermission(previousUri);
+      } on SafException {
+        // Already released or revoked by the OS — nothing to undo.
+      }
+    }
+
     await _storage.saveDownloadsUri(picked.uri);
     await _storage.saveDownloadsName(picked.name);
     return resolved;
   }
 
-  Future<void> forget() => _storage.clearDownloadsDestination();
+  /// Clears the configured folder and releases the OS-held write grant.
+  ///
+  /// Clearing only the stored hint would leave the app holding a live
+  /// persisted write grant on the folder even though Settings tells the
+  /// user "Downloads will ask each time" — a least-privilege mismatch.
+  Future<void> forget() async {
+    final uri = await _storage.getDownloadsUri();
+    await _storage.clearDownloadsDestination();
+    if (uri != null && uri.isNotEmpty) {
+      try {
+        await _saf.releasePersistedPermission(uri);
+      } on SafException {
+        // Already released or revoked by the OS — nothing to undo.
+      }
+    }
+  }
 
   /// Copies [localPath] into the configured folder, returning the name the
   /// file actually landed under.
@@ -209,6 +273,17 @@ class ExportDestinationService {
       throw const ExportSaveException(
         'That download folder is no longer available.',
         needsReselect: true,
+      );
+    }
+
+    // The native side throws the same SafNotFoundException for "source file
+    // is gone" as for "destination folder is gone" (e.g. the temp file was
+    // evicted from cache while the folder picker backgrounded the app).
+    // Checked up front so that case is never misreported as a folder
+    // problem — re-picking a folder would not fix a missing source file.
+    if (!await File(localPath).exists()) {
+      throw const ExportSaveException(
+        'The downloaded file is no longer available. Try again.',
       );
     }
 

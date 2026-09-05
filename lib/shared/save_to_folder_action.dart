@@ -65,6 +65,9 @@ Future<ExportDestination?> _ensureDestination(
       return null;
     case _MissingFolderChoice.choose:
       final chosen = await service.chooseFolder();
+      // The picker can background the app indefinitely; the host widget may
+      // be gone by the time it returns.
+      if (!context.mounted) return null;
       ref.invalidate(downloadsDestinationProvider);
       return chosen;
   }
@@ -110,6 +113,7 @@ Future<void> saveToFolderWithFallback({
     return;
   }
   if (destination == null) return;
+  if (!context.mounted) return;
 
   final service = ref.read(exportDestinationServiceProvider);
   final savedNames = <String>[];
