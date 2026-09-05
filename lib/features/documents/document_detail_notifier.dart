@@ -4,6 +4,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../core/api/api_providers.dart';
 import '../../core/models/document.dart';
 import '../../core/models/note.dart';
+import '../../core/services/export_destination_service.dart';
 
 part 'document_detail_notifier.g.dart';
 
@@ -78,8 +79,7 @@ class DocumentNotes extends _$DocumentNotes {
 Future<String> documentDownload(Ref ref, int documentId, String title) async {
   final api = ref.watch(paperlessApiProvider);
   final dir = await getTemporaryDirectory();
-  var safeName = title.replaceAll(RegExp(r'[^\w\s-]'), '').trim();
-  if (safeName.isEmpty) safeName = 'document_$documentId';
+  final safeName = sanitizeExportName(title, fallback: 'document_$documentId');
   final path = '${dir.path}/${documentId}_$safeName.pdf';
   final file = await api.downloadDocument(documentId, path);
   return file.path;

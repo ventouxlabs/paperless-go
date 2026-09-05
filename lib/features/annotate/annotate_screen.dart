@@ -2,17 +2,20 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/services/pdf_renderer_channel.dart';
 import '../../core/api/api_error_mapper.dart';
+import '../../core/services/export_destination_service.dart';
+import '../../shared/save_to_folder_action.dart';
 import 'annotation_export.dart';
 import 'annotation_model.dart';
 import 'annotation_painter.dart';
 
-class AnnotateScreen extends StatefulWidget {
+class AnnotateScreen extends ConsumerStatefulWidget {
   final String pdfPath;
   final String title;
 
@@ -23,10 +26,10 @@ class AnnotateScreen extends StatefulWidget {
   });
 
   @override
-  State<AnnotateScreen> createState() => _AnnotateScreenState();
+  ConsumerState<AnnotateScreen> createState() => _AnnotateScreenState();
 }
 
-class _AnnotateScreenState extends State<AnnotateScreen> {
+class _AnnotateScreenState extends ConsumerState<AnnotateScreen> {
   List<Uint8List> _pages = [];
   bool _loading = true;
   String? _error;
@@ -131,38 +134,72 @@ class _AnnotateScreenState extends State<AnnotateScreen> {
     }
   }
 
+  /// Flattens the annotations into a PDF written to a temp file.
+  Future<String> _renderAnnotatedPdf() async {
+    final compositeImages = <Uint8List>[];
+    for (int i = 0; i < _pages.length; i++) {
+      final strokes = _annotationState.strokes(i);
+      final decoded = img.decodePng(_pages[i]);
+      final width = decoded?.width ?? 800;
+      final height = decoded?.height ?? 1200;
+      final composited = await compositePageImage(
+        pageImagePng: _pages[i],
+        strokes: strokes,
+        pageWidth: width,
+        pageHeight: height,
+      );
+      compositeImages.add(composited);
+    }
+    final pdfBytes = await buildAnnotatedPdf(
+      compositeImages: compositeImages,
+      jpegQuality: 85,
+    );
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/annotated.pdf');
+    await file.writeAsBytes(pdfBytes);
+    return file.path;
+  }
+
   Future<void> _saveAndShare() async {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Saving annotated PDF...')),
     );
     try {
-      final compositeImages = <Uint8List>[];
-      for (int i = 0; i < _pages.length; i++) {
-        final strokes = _annotationState.strokes(i);
-        final decoded = img.decodePng(_pages[i]);
-        final width = decoded?.width ?? 800;
-        final height = decoded?.height ?? 1200;
-        final composited = await compositePageImage(
-          pageImagePng: _pages[i],
-          strokes: strokes,
-          pageWidth: width,
-          pageHeight: height,
-        );
-        compositeImages.add(composited);
-      }
-      final pdfBytes = await buildAnnotatedPdf(
-        compositeImages: compositeImages,
-        jpegQuality: 85,
-      );
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/annotated.pdf');
-      await file.writeAsBytes(pdfBytes);
-      await Share.shareXFiles([XFile(file.path, mimeType: 'application/pdf')]);
+      final path = await _renderAnnotatedPdf();
+      await Share.shareXFiles([XFile(path, mimeType: 'application/pdf')]);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Share failed: ${friendlyApiMessage(e)}')),
+        );
+      }
+    }
+  }
+
+  Future<void> _saveToFolder() async {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Saving annotated PDF...')),
+    );
+    try {
+      final path = await _renderAnnotatedPdf();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      await saveToFolderWithFallback(
+        context: context,
+        ref: ref,
+        localPaths: [path],
+        fileNames: [
+          '${sanitizeExportName(widget.title, fallback: 'annotated')}'
+              '_annotated.pdf',
+        ],
+      );
+    } on Exception catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Save failed: ${friendlyApiMessage(e)}')),
         );
       }
     }
@@ -196,6 +233,11 @@ class _AnnotateScreenState extends State<AnnotateScreen> {
             icon: const Icon(Icons.share),
             tooltip: 'Share',
             onPressed: _saveAndShare,
+          ),
+          IconButton(
+            icon: const Icon(Icons.folder_outlined),
+            tooltip: 'Save to folder',
+            onPressed: _saveToFolder,
           ),
         ],
       ),

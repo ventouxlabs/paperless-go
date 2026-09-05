@@ -18,4 +18,6 @@ class StorageKeys {
   static const String biometricLock = 'biometric_lock';
   static const String serverProfiles = 'server_profiles';
   static const String activeProfileIndex = 'active_profile_index';
+  static const String downloadsUri = 'downloads_uri';
+  static const String downloadsName = 'downloads_name';
 }
