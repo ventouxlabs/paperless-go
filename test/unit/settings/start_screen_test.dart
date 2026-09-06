@@ -81,16 +81,22 @@ void main() {
       expect(container.read(startScreenProvider).hasError, isFalse);
     });
 
-    test('a storage write failure keeps the in-session choice', () async {
+    test('a storage write failure reverts the choice and reports false',
+        () async {
+      // Showing Inbox selected while storage still says Library would only
+      // revert on the next launch; better to tell the truth now.
       container = ProviderContainer(
         overrides: [secureStorageProvider.overrideWithValue(_BrokenStorage())],
       );
       addTearDown(container.dispose);
       await container.read(startScreenProvider.future);
-      await container.read(startScreenProvider.notifier).set(StartScreen.inbox);
+      final saved = await container
+          .read(startScreenProvider.notifier)
+          .set(StartScreen.inbox);
+      expect(saved, isFalse);
       expect(
         container.read(startScreenProvider).valueOrNull,
-        StartScreen.inbox,
+        StartScreen.library,
       );
     });
 
@@ -99,8 +105,11 @@ void main() {
       addTearDown(container.dispose);
       await container.read(startScreenProvider.future);
 
-      await container.read(startScreenProvider.notifier).set(StartScreen.inbox);
+      final saved = await container
+          .read(startScreenProvider.notifier)
+          .set(StartScreen.inbox);
 
+      expect(saved, isTrue);
       expect(
         container.read(startScreenProvider).valueOrNull,
         StartScreen.inbox,

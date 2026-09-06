@@ -113,6 +113,34 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets(
+      'while auth is still restoring, "/" is parked on the *stored* start '
+      'screen, not the default', (tester) async {
+    FlutterSecureStorage.setMockInitialValues({'start_screen': 'inbox'});
+    final container = ProviderContainer(
+      overrides: [
+        authStateProvider.overrideWith(_FakeLoadingForever.new),
+        secureStorageProvider.overrideWithValue(
+          SecureStorageService(storage: const FlutterSecureStorage()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final router = container.read(routerProvider);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/inbox',
+    );
+  });
+
   testWidgets('the app lands on Inbox when that start screen is stored',
       (tester) async {
     final harness = await _harness(

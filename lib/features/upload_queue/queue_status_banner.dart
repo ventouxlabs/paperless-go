@@ -90,36 +90,49 @@ class _WaitingLine extends StatelessWidget {
   Widget build(BuildContext context) {
     if (count == 0) return const SizedBox.shrink();
     final tokens = AppTokens.of(context);
-    return Material(
-      color: tokens.card,
-      child: InkWell(
-        onTap: () => context.push('/upload-queue'),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-              Spacing.lg, Spacing.sm, Spacing.lg, Spacing.sm),
-          child: Row(
-            children: [
-              Icon(Icons.cloud_upload_outlined, size: 20, color: tokens.inkSoft),
-              const SizedBox(width: Spacing.sm),
-              Expanded(
-                child: Text(
-                  count == 1
-                      ? '1 upload waiting to reach your server'
-                      : '$count uploads waiting to reach your server',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyMedium
-                      ?.copyWith(color: tokens.inkSoft),
-                ),
+    // "Not sent yet" is true whether the row is queued, retrying, or being
+    // uploaded this second; "waiting" would be wrong for the last one.
+    final label =
+        count == 1 ? '1 upload not sent yet' : '$count uploads not sent yet';
+    return Semantics(
+      button: true,
+      label: '$label. View upload queue',
+      child: Material(
+        color: tokens.card,
+        child: InkWell(
+          onTap: () => context.push('/upload-queue'),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
+              child: Row(
+                children: [
+                  Icon(Icons.cloud_upload_outlined,
+                      size: 20, color: tokens.inkSoft),
+                  const SizedBox(width: Spacing.sm),
+                  Expanded(
+                    child: ExcludeSemantics(
+                      child: Text(
+                        label,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(color: tokens.inkSoft),
+                      ),
+                    ),
+                  ),
+                  ExcludeSemantics(
+                    child: Text('View',
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelLarge
+                            ?.copyWith(color: tokens.accentEmphasis)),
+                  ),
+                  const SizedBox(width: Spacing.xs),
+                  Icon(Icons.chevron_right, size: 18, color: tokens.inkSoft),
+                ],
               ),
-              Text('View',
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelLarge
-                      ?.copyWith(color: tokens.accentEmphasis)),
-              const SizedBox(width: Spacing.xs),
-              Icon(Icons.chevron_right, size: 18, color: tokens.inkSoft),
-            ],
+            ),
           ),
         ),
       ),

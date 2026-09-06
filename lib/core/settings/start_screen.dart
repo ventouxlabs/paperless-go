@@ -58,14 +58,19 @@ class StartScreenNotifier extends AsyncNotifier<StartScreen> {
     }
   }
 
-  /// Applies the choice now and persists it; a failed write keeps the
-  /// in-session choice and is logged rather than surfaced.
-  Future<void> set(StartScreen screen) async {
+  /// Applies the choice now and persists it. Returns false, with the
+  /// previous choice restored, if the write fails — showing Inbox selected
+  /// while storage still says Library would just revert on the next launch.
+  Future<bool> set(StartScreen screen) async {
+    final previous = state;
     state = AsyncData(screen);
     try {
       await ref.read(secureStorageProvider).saveStartScreen(screen.name);
+      return true;
     } on Exception catch (e) {
       debugPrint('Start screen could not be saved: $e');
+      state = previous;
+      return false;
     }
   }
 }
