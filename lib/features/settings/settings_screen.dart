@@ -157,9 +157,8 @@ class SettingsScreen extends ConsumerWidget {
                             ),
                         ],
                         selected: {startScreen},
-                        onSelectionChanged: (selection) => ref
-                            .read(startScreenProvider.notifier)
-                            .set(selection.first),
+                        onSelectionChanged: (selection) =>
+                            _setStartScreen(context, ref, selection.first),
                       ),
                     ),
                   ],
@@ -377,6 +376,16 @@ class SettingsScreen extends ConsumerWidget {
       if (!authenticated || !context.mounted) return;
     }
     ref.read(biometricLockProvider.notifier).setEnabled(enabled);
+  }
+
+  Future<void> _setStartScreen(
+      BuildContext context, WidgetRef ref, StartScreen screen) async {
+    final saved = await ref.read(startScreenProvider.notifier).set(screen);
+    if (!saved && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not save the start screen.')),
+      );
+    }
   }
 
   Future<void> _chooseDownloadsFolder(
