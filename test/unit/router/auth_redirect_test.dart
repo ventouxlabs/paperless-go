@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:paperless_go/app.dart';
 import 'package:paperless_go/core/auth/auth_provider.dart';
+import 'package:paperless_go/core/auth/secure_storage.dart';
 
 class _FakeAuthenticated extends AuthState {
   @override
@@ -29,10 +31,19 @@ class _FakeLoadingForever extends AuthState {
 
 Future<GoRouterHarness> _harness(
   WidgetTester tester,
-  AuthState Function() authState,
-) async {
+  AuthState Function() authState, {
+  Map<String, String> stored = const {},
+}) async {
+  // The router awaits the start-screen setting, so the keystore has to
+  // answer; an in-memory one stands in for it.
+  FlutterSecureStorage.setMockInitialValues({...stored});
   final container = ProviderContainer(
-    overrides: [authStateProvider.overrideWith(authState)],
+    overrides: [
+      authStateProvider.overrideWith(authState),
+      secureStorageProvider.overrideWithValue(
+        SecureStorageService(storage: const FlutterSecureStorage()),
+      ),
+    ],
   );
   await container.read(authStateProvider.future);
   final router = container.read(routerProvider);
@@ -55,8 +66,91 @@ class GoRouterHarness {
 }
 
 void main() {
+  testWidgets('the app lands on Library by default', (tester) async {
+    final harness = await _harness(tester, _FakeAuthenticated.new);
+    addTearDown(harness.container.dispose);
+
+    expect(
+      harness.router.routerDelegate.currentConfiguration.uri.toString(),
+      '/documents',
+    );
+  });
+
+  testWidgets('the app lands on Inbox when that start screen is stored',
+      (tester) async {
+    final harness = await _harness(
+      tester,
+      _FakeAuthenticated.new,
+      stored: {'start_screen': 'inbox'},
+    );
+    addTearDown(harness.container.dispose);
+
+    expect(
+      harness.router.routerDelegate.currentConfiguration.uri.toString(),
+      '/inbox',
+    );
+  });
+
+  testWidgets('an unknown stored start screen falls back to Library',
+      (tester) async {
+    final harness = await _harness(
+      tester,
+      _FakeAuthenticated.new,
+      stored: {'start_screen': 'dashboard'},
+    );
+    addTearDown(harness.container.dispose);
+
+    expect(
+      harness.router.routerDelegate.currentConfiguration.uri.toString(),
+      '/documents',
+    );
+  });
+
+  testWidgets('"/" resolves to the chosen start screen, not a dead route',
+      (tester) async {
+    final harness = await _harness(
+      tester,
+      _FakeAuthenticated.new,
+      stored: {'start_screen': 'inbox'},
+    );
+    addTearDown(harness.container.dispose);
+
+    harness.router.go('/documents');
+    await tester.pumpAndSettle();
+    harness.router.go('/');
+    await tester.pumpAndSettle();
+
+    expect(
+      harness.router.routerDelegate.currentConfiguration.uri.toString(),
+      '/inbox',
+    );
+    expect(find.text('Page not found'), findsNothing);
+  });
+
+  testWidgets('a logged-out user lands on /login', (tester) async {
+    final harness = await _harness(tester, _FakeUnauthenticated.new);
+    addTearDown(harness.container.dispose);
+    expect(
+      harness.router.routerDelegate.currentConfiguration.uri.toString(),
+      '/login',
+    );
+  });
+
+  testWidgets('a visit to /login while logged in bounces to the start screen',
+      (tester) async {
+    final harness = await _harness(tester, _FakeAuthenticated.new);
+    addTearDown(harness.container.dispose);
+    harness.router.go('/login');
+    await tester.pumpAndSettle();
+    expect(
+      harness.router.routerDelegate.currentConfiguration.uri.toString(),
+      '/documents',
+    );
+  });
+
   testWidgets(
-      'a content:// share/open-with route lands on /inbox, not the '
+      'a content:// share/open-with route is parked on the start screen '
+      '(the share handler pushes the upload screen on top), not the '
       'unmatched intermediate "/" '
       '(regression: onNewIntent-pushed routes on a reused singleTask '
       'Activity showed "Page not found" instead of following through a '
@@ -71,7 +165,7 @@ void main() {
 
     expect(
       harness.router.routerDelegate.currentConfiguration.uri.toString(),
-      '/inbox',
+      '/documents',
     );
   });
 
@@ -83,8 +177,14 @@ void main() {
       (tester) async {
     // Deliberately does NOT await authStateProvider.future — the whole point
     // is the window while it is still pending.
+    FlutterSecureStorage.setMockInitialValues(<String, String>{});
     final container = ProviderContainer(
-      overrides: [authStateProvider.overrideWith(_FakeLoadingForever.new)],
+      overrides: [
+        authStateProvider.overrideWith(_FakeLoadingForever.new),
+        secureStorageProvider.overrideWithValue(
+          SecureStorageService(storage: const FlutterSecureStorage()),
+        ),
+      ],
     );
     addTearDown(container.dispose);
     final router = container.read(routerProvider);

@@ -5,17 +5,20 @@ import 'package:go_router/go_router.dart';
 import '../../core/design_tokens.dart';
 import 'upload_queue_notifier.dart';
 
-/// Tells the user when uploads have stopped trying, without nagging.
+/// Tells the user what the upload queue is doing, without nagging.
 ///
 /// The queue was silent before this: a document could fail every retry and then
 /// sit on disk indefinitely with nothing on screen. A badge in Settings alone
 /// does not fix that — nobody opens Settings to check for a problem they have
 /// not been told about.
 ///
-/// Shows nothing at all unless a row actually needs a decision (failed or
-/// legacy). Uploads merely waiting for signal are normal and must not raise a
-/// banner, or the banner becomes noise and gets ignored on the one day it
-/// matters.
+/// Two voices, so the loud one keeps its meaning:
+/// - a row that needs a decision (failed or legacy) gets the error-coloured
+///   banner with a dismiss for this visit;
+/// - rows that are merely waiting get a quiet, neutral, tappable line that
+///   says how many and opens the queue. It cannot be dismissed, because
+///   "what is still on the phone?" is the question it exists to answer, and it
+///   disappears on its own once the queue drains.
 class QueueStatusBanner extends ConsumerStatefulWidget {
   const QueueStatusBanner({super.key});
 
@@ -32,7 +35,9 @@ class _QueueStatusBannerState extends ConsumerState<QueueStatusBanner> {
   @override
   Widget build(BuildContext context) {
     final count = ref.watch(uploadsNeedingAttentionProvider);
-    if (count == 0 || _dismissed) return const SizedBox.shrink();
+    if (count == 0 || _dismissed) {
+      return _WaitingLine(count: ref.watch(uploadsWaitingProvider));
+    }
 
     final colorScheme = Theme.of(context).colorScheme;
     return Material(
@@ -69,6 +74,53 @@ class _QueueStatusBannerState extends ConsumerState<QueueStatusBanner> {
               onPressed: () => setState(() => _dismissed = true),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The quiet voice: how many uploads are still on the phone, and a way in.
+class _WaitingLine extends StatelessWidget {
+  const _WaitingLine({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    if (count == 0) return const SizedBox.shrink();
+    final tokens = AppTokens.of(context);
+    return Material(
+      color: tokens.card,
+      child: InkWell(
+        onTap: () => context.push('/upload-queue'),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+              Spacing.lg, Spacing.sm, Spacing.lg, Spacing.sm),
+          child: Row(
+            children: [
+              Icon(Icons.cloud_upload_outlined, size: 20, color: tokens.inkSoft),
+              const SizedBox(width: Spacing.sm),
+              Expanded(
+                child: Text(
+                  count == 1
+                      ? '1 upload waiting to reach your server'
+                      : '$count uploads waiting to reach your server',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: tokens.inkSoft),
+                ),
+              ),
+              Text('View',
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelLarge
+                      ?.copyWith(color: tokens.accentEmphasis)),
+              const SizedBox(width: Spacing.xs),
+              Icon(Icons.chevron_right, size: 18, color: tokens.inkSoft),
+            ],
+          ),
         ),
       ),
     );

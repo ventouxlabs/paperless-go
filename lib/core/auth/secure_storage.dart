@@ -52,6 +52,12 @@ class SecureStorageService {
   Future<String?> getThemeMode() =>
       _storage.read(key: StorageKeys.themeMode);
 
+  Future<void> saveStartScreen(String name) =>
+      _storage.write(key: StorageKeys.startScreen, value: name);
+
+  Future<String?> getStartScreen() =>
+      _storage.read(key: StorageKeys.startScreen);
+
   Future<void> saveBiometricLock(bool enabled) =>
       _storage.write(key: StorageKeys.biometricLock, value: enabled.toString());
 

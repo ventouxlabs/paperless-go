@@ -33,6 +33,17 @@ int uploadsNeedingAttention(Ref ref) {
       .length;
 }
 
+/// How many rows are simply waiting their turn (queued, retrying on
+/// schedule, or mid-upload) — everything that is not in
+/// [uploadsNeedingAttention].
+///
+/// Hand-written rather than @riverpod: code generation cannot run on this
+/// toolchain (see export_destination_providers.dart).
+final uploadsWaitingProvider = Provider<int>((ref) {
+  final rows = ref.watch(pendingUploadsProvider).valueOrNull ?? const [];
+  return rows.length - ref.watch(uploadsNeedingAttentionProvider);
+});
+
 /// Queued rows the app cannot decode at all.
 ///
 /// Zero in every healthy install. Non-zero means corrupt rows are holding files

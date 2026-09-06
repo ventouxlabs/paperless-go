@@ -78,6 +78,12 @@ class InboxScreen extends ConsumerWidget {
                     iconSize: 26,
                     onPressed: () => context.push('/search'),
                   ),
+                  IconButton(
+                    icon: const Icon(Icons.settings_outlined),
+                    tooltip: 'Settings',
+                    iconSize: 26,
+                    onPressed: () => context.push('/settings'),
+                  ),
                 ],
               ),
             ),

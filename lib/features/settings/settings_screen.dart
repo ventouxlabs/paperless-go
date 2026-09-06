@@ -8,6 +8,7 @@ import '../../core/auth/server_profiles.dart';
 import '../../core/design_tokens.dart';
 import '../upload_queue/upload_queue_notifier.dart';
 import '../../core/services/biometric_service.dart';
+import '../../core/settings/start_screen.dart';
 import '../../core/services/export_destination_providers.dart';
 import '../../core/services/export_destination_service.dart';
 import '../ai_chat/chat_notifier.dart';
@@ -21,6 +22,8 @@ class SettingsScreen extends ConsumerWidget {
     final aiUrl = ref.watch(aiChatUrlProvider);
     final authState = ref.watch(authStateProvider).valueOrNull;
     final themeMode = ref.watch(themeModeNotifierProvider);
+    final startScreen =
+        ref.watch(startScreenProvider).valueOrNull ?? StartScreen.fallback;
     final biometricEnabled = ref.watch(biometricLockProvider);
     final profilesState = ref.watch(serverProfilesNotifierProvider);
     final aiUsername = ref.watch(aiChatUsernameProvider);
@@ -122,6 +125,41 @@ class SettingsScreen extends ConsumerWidget {
                         onSelectionChanged: (selection) => ref
                             .read(themeModeNotifierProvider.notifier)
                             .setThemeMode(selection.first),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    Spacing.lg, Spacing.md, Spacing.lg, Spacing.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.home_outlined, color: tokens.inkSoft),
+                        const SizedBox(width: Spacing.lg),
+                        Text('Start screen',
+                            style: Theme.of(context).textTheme.bodyLarge),
+                      ],
+                    ),
+                    const SizedBox(height: Spacing.md),
+                    SizedBox(
+                      width: double.infinity,
+                      child: SegmentedButton<StartScreen>(
+                        showSelectedIcon: false,
+                        segments: [
+                          for (final screen in StartScreen.values)
+                            ButtonSegment(
+                              value: screen,
+                              label: Text(screen.label),
+                            ),
+                        ],
+                        selected: {startScreen},
+                        onSelectionChanged: (selection) => ref
+                            .read(startScreenProvider.notifier)
+                            .set(selection.first),
                       ),
                     ),
                   ],

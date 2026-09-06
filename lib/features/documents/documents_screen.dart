@@ -16,6 +16,7 @@ import '../../shared/save_to_folder_action.dart';
 import '../../core/services/export_destination_service.dart';
 import '../../core/design_tokens.dart';
 import '../../core/api/api_error_mapper.dart';
+import '../upload_queue/queue_status_banner.dart';
 import 'active_filters_bar.dart';
 import 'bulk_action_bar.dart';
 import 'document_detail_notifier.dart';
@@ -210,6 +211,9 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Library is the default start screen now, so anything the
+                // queue needs to say has to be visible here, not only in Inbox.
+                const QueueStatusBanner(),
                 // Header — Library title + count subtitle + single icon action.
                 Padding(
                   padding: const EdgeInsets.fromLTRB(
