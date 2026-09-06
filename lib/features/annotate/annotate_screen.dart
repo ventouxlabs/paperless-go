@@ -168,7 +168,7 @@ class _AnnotateScreenState extends ConsumerState<AnnotateScreen> {
     try {
       final path = await _renderAnnotatedPdf();
       await Share.shareXFiles([XFile(path, mimeType: 'application/pdf')]);
-    } catch (e) {
+    } on Exception catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Share failed: ${friendlyApiMessage(e)}')),
@@ -179,21 +179,29 @@ class _AnnotateScreenState extends ConsumerState<AnnotateScreen> {
 
   Future<void> _saveToFolder() async {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Saving annotated PDF...')),
-    );
     try {
-      final path = await _renderAnnotatedPdf();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       await saveToFolderWithFallback(
         context: context,
         ref: ref,
-        localPaths: [path],
-        fileNames: [
-          '${sanitizeExportName(widget.title, fallback: 'annotated')}'
-              '_annotated.pdf',
-        ],
+        produceFiles: () async {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Saving annotated PDF...')),
+            );
+          }
+          final path = await _renderAnnotatedPdf();
+          if (mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          return [
+            (
+              path: path,
+              name: exportFileName(
+                widget.title,
+                fallback: 'annotated',
+                suffix: '_annotated.pdf',
+              ),
+            ),
+          ];
+        },
       );
     } on Exception catch (e) {
       if (mounted) {

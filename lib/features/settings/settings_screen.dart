@@ -8,6 +8,7 @@ import '../../core/auth/server_profiles.dart';
 import '../../core/design_tokens.dart';
 import '../upload_queue/upload_queue_notifier.dart';
 import '../../core/services/biometric_service.dart';
+import '../../core/services/export_destination_providers.dart';
 import '../../core/services/export_destination_service.dart';
 import '../ai_chat/chat_notifier.dart';
 
@@ -145,7 +146,7 @@ class SettingsScreen extends ConsumerWidget {
             children: [
               ListTile(
                 leading: Icon(Icons.folder_outlined, color: tokens.inkSoft),
-                title: const Text('Downloads location'),
+                title: const Text('Download folder'),
                 subtitle: _DownloadsLocationSubtitle(
                   destination: downloadsDestination,
                   tokens: tokens,
@@ -358,7 +359,7 @@ class SettingsScreen extends ConsumerWidget {
               ListTile(
                 leading: const Icon(Icons.folder_off_outlined),
                 title: const Text('Forget this folder'),
-                subtitle: const Text('Downloads will ask each time'),
+                subtitle: const Text('Save to folder will ask each time'),
                 onTap: () => Navigator.pop(ctx, 'forget'),
               ),
             ],

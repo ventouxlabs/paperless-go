@@ -75,6 +75,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  integration_test:
+    sdk: flutter
   http_mock_adapter: ^0.6.1
   build_runner: ^2.4.14
   drift_dev: ^2.22.1

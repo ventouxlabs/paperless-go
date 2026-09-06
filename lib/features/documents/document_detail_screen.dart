@@ -552,8 +552,8 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
             const Divider(height: 1),
             sectionLabel(ctx, 'Export'),
             ListTile(
-              leading: const Icon(Icons.download_outlined),
-              title: const Text('Download'),
+              leading: const Icon(Icons.folder_outlined),
+              title: const Text('Save to folder'),
               onTap: () => Navigator.pop(ctx, 'download'),
             ),
             ListTile(
@@ -679,25 +679,32 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
           );
         }
       case 'download':
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Downloading...')),
-        );
         try {
-          final path = await ref.read(
-            documentDownloadProvider(documentId, title).future,
-          );
-          if (!context.mounted) break;
-          ScaffoldMessenger.of(context).hideCurrentSnackBar();
           await saveToFolderWithFallback(
             context: context,
             ref: ref,
-            localPaths: [path],
-            fileNames: [
-              '${sanitizeExportName(title, fallback: 'document_$documentId')}'
-                  '.pdf',
-            ],
+            produceFiles: () async {
+              // The picker can outlive this screen; a disposed ref throws
+              // an Error, not an Exception.
+              if (!context.mounted) return const <ExportFile>[];
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Downloading...')),
+              );
+              final path = await ref.read(
+                documentDownloadProvider(documentId, title).future,
+              );
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              }
+              return [
+                (
+                  path: path,
+                  name: exportFileName(title, fallback: 'document_$documentId'),
+                ),
+              ];
+            },
           );
-        } catch (e) {
+        } on Exception catch (e) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
             ScaffoldMessenger.of(context).showSnackBar(
@@ -800,10 +807,12 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
         );
         if (selectedQuality == null) break;
         if (!context.mounted) break;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Compressing...')),
-        );
-        try {
+        Future<String> compress() async {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Compressing...')),
+            );
+          }
           final tempPath = await ref.read(
             documentDownloadProvider(documentId, title).future,
           );
@@ -813,21 +822,36 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
           );
           if (context.mounted) {
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            if (action == 'compress_save') {
-              await saveToFolderWithFallback(
-                context: context,
-                ref: ref,
-                localPaths: [outputPath],
-                fileNames: [
-                  '${sanitizeExportName(title, fallback: 'document_$documentId')}'
-                      '_compressed.pdf',
-                ],
-              );
-            } else {
-              await Share.shareXFiles([XFile(outputPath)]);
-            }
           }
-        } catch (e) {
+          return outputPath;
+        }
+
+        try {
+          if (action == 'compress_save') {
+            await saveToFolderWithFallback(
+              context: context,
+              ref: ref,
+              produceFiles: () async {
+                // The picker can outlive this screen; a disposed ref throws
+                // an Error, not an Exception.
+                if (!context.mounted) return const <ExportFile>[];
+                return [
+                  (
+                    path: await compress(),
+                    name: exportFileName(
+                      title,
+                      fallback: 'document_$documentId',
+                      suffix: '_compressed.pdf',
+                    ),
+                  ),
+                ];
+              },
+            );
+          } else {
+            final outputPath = await compress();
+            await Share.shareXFiles([XFile(outputPath)]);
+          }
+        } on Exception catch (e) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
             ScaffoldMessenger.of(context).showSnackBar(
