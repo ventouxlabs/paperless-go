@@ -12,7 +12,12 @@ void main() async {
   // initial redirect resolves synchronously: an async first redirect leaves
   // frame one without a Navigator, which is exactly when a cold-start share
   // arrives looking for one.
-  await container.read(startScreenProvider.future);
+  // Bounded: a wedged keystore must not hold the native splash forever.
+  // On timeout the router falls back to its async path once the read
+  // lands, which is the pre-existing behaviour, not a regression.
+  await container
+      .read(startScreenProvider.future)
+      .timeout(const Duration(seconds: 2), onTimeout: () => StartScreen.fallback);
   runApp(
     UncontrolledProviderScope(
       container: container,
