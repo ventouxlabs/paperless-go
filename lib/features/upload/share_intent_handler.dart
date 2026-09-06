@@ -94,6 +94,10 @@ class ShareIntentHandler {
     // it with nothing to show for a file the user just handed us.
     if (context == null || !context.mounted) {
       _pendingRoute = route;
+      // Nothing else is guaranteed to fire once the Navigator exists (auth
+      // may already be settled, the lifecycle already resumed), so retry on
+      // the next frame ourselves.
+      WidgetsBinding.instance.addPostFrameCallback((_) => flushPendingShare());
       return;
     }
     // A share/open-with arriving via onNewIntent on a warm resume (task
