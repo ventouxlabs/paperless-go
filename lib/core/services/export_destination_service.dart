@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:saf/saf.dart';
 
 import '../auth/secure_storage.dart';
@@ -125,22 +126,82 @@ ExportDestination resolveDestination({
       : ExportDestination.unavailable(uri: storedUri!, name: storedName);
 }
 
+/// Longest sanitised base name, in UTF-8 bytes.
+///
+/// Linux and most DocumentsProviders cap one path component at 255 bytes.
+/// Call sites append a suffix (up to `_compressed.pdf`) and the cache path
+/// prepends `<id>_`, so the base name gets well under half of that. Counted
+/// in bytes, not characters: 100 CJK characters are 300 bytes.
+const int kExportNameMaxBytes = 120;
+
+/// Characters SAF providers reject, plus the Unicode bidi controls that let
+/// a server-supplied title render `fdp.exe` as `exe.pdf` in a file manager.
+final RegExp _forbiddenNameChars = RegExp(
+  r'[<>:"/\\|?*\x00-\x1F\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]',
+);
+
+/// Base names Windows-backed providers (SMB, some cloud mounts) refuse.
+final RegExp _reservedBaseName = RegExp(
+  r'^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$',
+  caseSensitive: false,
+);
+
 /// Strips characters that SAF providers reject in a document name.
 ///
 /// A deny-list rather than the word-character allow-list `documentDownload`
 /// used to apply to the temp file: an allow-list erases every non-ASCII
 /// title (`Rechnung Müller` -> `Rechnung Mller`), and that mangled name is
 /// now visible to the user in the folder they picked rather than hidden in
-/// an app-private cache path. Also caps length — some SAF providers reject a
-/// display name past ~255 bytes, and a long title plus a suffix like
-/// `_compressed.pdf` can get there.
+/// an app-private cache path. Length is capped at [kExportNameMaxBytes] of
+/// UTF-8, cut on a rune boundary so an emoji is never split into a lone
+/// surrogate. Titles are server-controlled, so this is a trust boundary.
 String sanitizeExportName(String title, {required String fallback}) {
-  final safe = title.replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1F]'), '').trim();
-  final result = safe.isEmpty ? fallback : safe;
-  return result.length > 100 ? result.substring(0, 100) : result;
+  final safe = title.replaceAll(_forbiddenNameChars, '').trim();
+  if (safe.isEmpty) return fallback;
+  final capped = _truncateUtf8(safe, kExportNameMaxBytes).trim();
+  if (capped.isEmpty) return fallback;
+  return _reservedBaseName.hasMatch(capped) ? '_$capped' : capped;
+}
+
+/// The name a "Save to folder" action writes: sanitised [title] plus [suffix].
+///
+/// One helper so every call site agrees on the fallback shape and the
+/// suffix is never applied to an unsanitised title.
+String exportFileName(
+  String title, {
+  required String fallback,
+  String suffix = '.pdf',
+}) =>
+    '${sanitizeExportName(title, fallback: fallback)}$suffix';
+
+String _truncateUtf8(String text, int maxBytes) {
+  var bytes = 0;
+  final out = StringBuffer();
+  for (final rune in text.runes) {
+    final width = rune < 0x80
+        ? 1
+        : rune < 0x800
+            ? 2
+            : rune < 0x10000
+                ? 3
+                : 4;
+    if (bytes + width > maxBytes) break;
+    bytes += width;
+    out.writeCharCode(rune);
+  }
+  return out.toString();
 }
 
 /// Saves already-downloaded local files into a user-chosen SAF folder.
+///
+/// The folder is a device-level preference, not an account one: a single
+/// stored URI serves every server profile, the same way the theme does.
+/// Logout releases it along with everything else in secure storage.
+///
+/// Only the root tree URI that `pickDirectory()` returns may ever be stored.
+/// [SafTreeKey] would happily match a sub-folder URI to its tree grant, but
+/// the plugin can only release a grant by its root URI, so a stored
+/// sub-folder would resolve as ready and then be impossible to forget.
 class ExportDestinationService {
   final SecureStorageService _storage;
   final Saf _saf;
@@ -185,9 +246,8 @@ class ExportDestinationService {
     try {
       picked = await _saf.pickDirectory();
     } on SafException catch (e) {
-      throw ExportSaveException(
-        'Could not open the folder picker: ${e.message}',
-      );
+      _logSaf('pickDirectory', e);
+      throw const ExportSaveException('Could not open the folder picker.');
     }
     if (picked == null) return null;
 
@@ -195,9 +255,8 @@ class ExportDestinationService {
     try {
       permissions = await _saf.persistedPermissions();
     } on SafException catch (e) {
-      throw ExportSaveException(
-        'Could not confirm folder access: ${e.message}',
-      );
+      _logSaf('persistedPermissions', e);
+      throw const ExportSaveException('Could not confirm folder access.');
     }
 
     final resolved = resolveDestination(
@@ -306,7 +365,14 @@ class ExportDestinationService {
         needsReselect: true,
       );
     } on SafException catch (e) {
-      throw ExportSaveException('Could not save the file: ${e.message}');
+      _logSaf('pasteLocalFile', e);
+      throw const ExportSaveException('the file could not be written.');
     }
+  }
+
+  /// The plugin's messages embed the folder URI and cache paths, so they go
+  /// to the debug log, never into a snackbar.
+  void _logSaf(String call, SafException e) {
+    debugPrint('SAF $call failed: ${e.runtimeType}: ${e.message}');
   }
 }

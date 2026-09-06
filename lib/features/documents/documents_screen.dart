@@ -75,15 +75,22 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   Future<void> _saveDocument(
       BuildContext context, WidgetRef ref, int docId, String title) async {
     try {
-      final path = await ref.read(documentDownloadProvider(docId, title).future);
-      if (!context.mounted) return;
       await saveToFolderWithFallback(
         context: context,
         ref: ref,
-        localPaths: [path],
-        fileNames: [
-          '${sanitizeExportName(title, fallback: 'document_$docId')}.pdf',
-        ],
+        produceFiles: () async {
+          // The picker can outlive this screen; a disposed ref throws an
+          // Error, not an Exception. The folder is remembered either way.
+          if (!context.mounted) return const <ExportFile>[];
+          return [
+            (
+              path: await ref.read(
+                documentDownloadProvider(docId, title).future,
+              ),
+              name: exportFileName(title, fallback: 'document_$docId'),
+            ),
+          ];
+        },
       );
     } on Exception catch (e) {
       if (context.mounted) {
@@ -497,38 +504,43 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
       if (confirmed != true || !context.mounted) return;
     }
 
-    final paths = <String>[];
-    final names = <String>[];
     final downloadFailures = <String>[];
 
-    for (final doc in selectedDocs) {
-      try {
-        paths.add(await ref.read(
-          documentDownloadProvider(doc.id, doc.title).future,
-        ));
-        names.add(
-          '${sanitizeExportName(doc.title, fallback: 'document_${doc.id}')}.pdf',
-        );
-      } on Exception {
-        downloadFailures.add(doc.title);
+    // Downloads happen only once a folder is settled, so cancelling the
+    // prompt never fetches anything.
+    Future<List<ExportFile>> download() async {
+      final files = <ExportFile>[];
+      // The picker can outlive this screen; a disposed ref throws an Error.
+      if (!context.mounted) return files;
+      for (final doc in selectedDocs) {
+        try {
+          files.add((
+            path: await ref.read(
+              documentDownloadProvider(doc.id, doc.title).future,
+            ),
+            name: exportFileName(doc.title, fallback: 'document_${doc.id}'),
+          ));
+        } on Exception {
+          downloadFailures.add(doc.title);
+        }
       }
+      return files;
     }
 
-    if (paths.isNotEmpty && context.mounted) {
-      try {
-        await saveToFolderWithFallback(
-          context: context,
-          ref: ref,
-          localPaths: paths,
-          fileNames: names,
+    try {
+      final result = await saveToFolderWithFallback(
+        context: context,
+        ref: ref,
+        produceFiles: download,
+      );
+      // Keep the selection when nothing left the device, so a cancelled
+      // prompt or a wholesale failure does not throw away the user's picks.
+      if (result.didExport && context.mounted) _clearSelection();
+    } on Exception catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save: ${friendlyApiMessage(e)}')),
         );
-        if (context.mounted) _clearSelection();
-      } on Exception catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to save: ${friendlyApiMessage(e)}')),
-          );
-        }
       }
     }
 

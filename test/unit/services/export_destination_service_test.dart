@@ -6,75 +6,13 @@ import 'package:paperless_go/core/auth/secure_storage.dart';
 import 'package:paperless_go/core/services/export_destination_service.dart';
 import 'package:saf/saf.dart';
 
-/// A controllable [Saf] double: every plugin call the service touches can be
-/// made to succeed, return null (user cancelled), or throw.
-class _FakeSaf extends Saf {
-  SafDocumentFile? pickResult;
-  Object? pickError;
-  List<SafPersistedPermission> permissions = [];
-  Object? permissionsError;
-  Object? pasteError;
-  Object? releaseError;
-  final released = <String>[];
+import '../../helpers/fake_saf.dart';
 
-  @override
-  Future<SafDocumentFile?> pickDirectory({
-    String? initialUri,
-    bool writePermission = true,
-    bool persistablePermission = true,
-  }) async {
-    if (pickError != null) throw pickError!;
-    return pickResult;
-  }
-
-  @override
-  Future<List<SafPersistedPermission>> persistedPermissions() async {
-    if (permissionsError != null) throw permissionsError!;
-    return permissions;
-  }
-
-  @override
-  Future<void> releasePersistedPermission(String uri) async {
-    released.add(uri);
-    if (releaseError != null) throw releaseError!;
-  }
-
-  @override
-  Future<SafDocumentFile> pasteLocalFile(
-    String srcPath,
-    String destDirUri,
-    String name,
-    String mime, {
-    bool overwrite = false,
-    SafProgressCallback? onProgress,
-  }) async {
-    if (pasteError != null) throw pasteError!;
-    return SafDocumentFile(
-      uri: '$destDirUri/document/$name',
-      name: name,
-      isDir: false,
-      length: 0,
-      lastModified: 0,
-    );
-  }
-}
-
-/// The form `pickDirectory()` returns: `tree/<id>/document/<id>`.
-const _pickedUri =
-    'content://com.android.externalstorage.documents/tree/primary%3ADownload'
-    '/document/primary%3ADownload';
-
-/// The form `persistedPermissions()` reports: the bare `tree/<id>`.
-const _persistedUri =
-    'content://com.android.externalstorage.documents/tree/primary%3ADownload';
+const _pickedUri = pickedTreeUri;
+const _persistedUri = persistedTreeUri;
 
 SafPersistedPermission _grant(String uri, {bool write = true}) =>
-    SafPersistedPermission(
-      uri: uri,
-      read: true,
-      write: write,
-      persistedTime: 0,
-    );
+    grantFor(uri, write: write);
 
 void main() {
   group('SafTreeKey', () {
@@ -235,9 +173,65 @@ void main() {
       expect(sanitizeExportName('Счёт 12', fallback: 'doc'), 'Счёт 12');
     });
 
-    test('caps length so it cannot exceed provider display-name limits', () {
-      final long = 'a' * 300;
-      expect(sanitizeExportName(long, fallback: 'doc').length, 100);
+    test('caps length in UTF-8 bytes, not characters', () {
+      final ascii = 'a' * 300;
+      expect(
+        sanitizeExportName(ascii, fallback: 'doc').length,
+        kExportNameMaxBytes,
+      );
+      // 3 bytes per CJK character: 100 of them are 300 bytes, and the old
+      // code-unit cap would have let all 100 through.
+      final cjk = '請' * 100;
+      final cjkOut = sanitizeExportName(cjk, fallback: 'doc');
+      expect(cjkOut.length, kExportNameMaxBytes ~/ 3);
+      expect(_utf8Length(cjkOut), lessThanOrEqualTo(kExportNameMaxBytes));
+    });
+
+    test('never splits a surrogate pair at the cap', () {
+      // 119 ASCII bytes then a 4-byte emoji: the emoji does not fit and must
+      // be dropped whole, not cut into a lone surrogate.
+      final title = '${'a' * (kExportNameMaxBytes - 1)}😀';
+      final out = sanitizeExportName(title, fallback: 'doc');
+      expect(out, 'a' * (kExportNameMaxBytes - 1));
+      expect(out.runes.every((r) => r < 0xD800 || r > 0xDFFF), isTrue);
+    });
+
+    test('re-trims after capping so a name never ends in a space', () {
+      final title = '${'a' * (kExportNameMaxBytes - 1)} b';
+      expect(
+        sanitizeExportName(title, fallback: 'doc'),
+        'a' * (kExportNameMaxBytes - 1),
+      );
+    });
+
+    test('strips bidi override characters that spoof the extension', () {
+      expect(
+        sanitizeExportName('report\u202Efdp.exe', fallback: 'doc'),
+        'reportfdp.exe',
+      );
+      expect(
+        sanitizeExportName('\u200Eleft\u200F \u2066iso\u2069', fallback: 'doc'),
+        'left iso',
+      );
+    });
+
+    test('prefixes names that are reserved on Windows-backed providers', () {
+      expect(sanitizeExportName('CON', fallback: 'doc'), '_CON');
+      expect(sanitizeExportName('lpt1', fallback: 'doc'), '_lpt1');
+      expect(sanitizeExportName('Console', fallback: 'doc'), 'Console');
+    });
+  });
+
+  group('exportFileName', () {
+    test('appends the suffix to the sanitised title', () {
+      expect(
+        exportFileName('Invoice: 2024', fallback: 'document_1'),
+        'Invoice 2024.pdf',
+      );
+      expect(
+        exportFileName('///', fallback: 'document_1', suffix: '_compressed.pdf'),
+        'document_1_compressed.pdf',
+      );
     });
   });
 
@@ -256,7 +250,7 @@ void main() {
   group('ExportDestinationService.saveToDestination', () {
     late Directory tempDir;
     late File localFile;
-    late _FakeSaf saf;
+    late FakeSaf saf;
     late ExportDestinationService service;
     const destination = ExportDestination.ready(uri: _pickedUri, name: 'Download');
 
@@ -264,7 +258,7 @@ void main() {
       FlutterSecureStorage.setMockInitialValues(<String, String>{});
       tempDir = await Directory.systemTemp.createTemp('export_dest_test_');
       localFile = File('${tempDir.path}/doc.pdf')..writeAsStringSync('pdf');
-      saf = _FakeSaf();
+      saf = FakeSaf();
       service = ExportDestinationService(
         storage: SecureStorageService(storage: const FlutterSecureStorage()),
         saf: saf,
@@ -390,6 +384,62 @@ void main() {
       );
     });
 
+    test('resolves the stored folder itself when no known destination is '
+        'passed', () async {
+      FlutterSecureStorage.setMockInitialValues(<String, String>{
+        'downloads_uri': _pickedUri,
+        'downloads_name': 'Download',
+      });
+      saf.permissions = [_grant(_persistedUri)];
+      final written = await service.saveToDestination(
+        localPath: localFile.path,
+        fileName: 'doc.pdf',
+      );
+      expect(written, 'doc.pdf');
+      expect(saf.pasted.single.dir, _pickedUri);
+    });
+
+    test('fails closed when the stored folder is unavailable and no known '
+        'destination is passed', () async {
+      FlutterSecureStorage.setMockInitialValues(<String, String>{
+        'downloads_uri': _pickedUri,
+      });
+      saf.permissions = [];
+      await expectLater(
+        service.saveToDestination(
+          localPath: localFile.path,
+          fileName: 'doc.pdf',
+        ),
+        throwsA(
+          isA<ExportSaveException>()
+              .having((e) => e.needsReselect, 'needsReselect', isTrue),
+        ),
+      );
+      expect(saf.pasted, isEmpty);
+    });
+
+    test('never surfaces the raw SAF message, which embeds URIs and paths',
+        () async {
+      saf.pasteError = const SafIoException(
+        _pickedUri,
+        'Cannot open output content://secret/tree/primary%3ADocuments',
+      );
+      await expectLater(
+        service.saveToDestination(
+          localPath: localFile.path,
+          fileName: 'doc.pdf',
+          known: destination,
+        ),
+        throwsA(
+          isA<ExportSaveException>().having(
+            (e) => e.message,
+            'message',
+            isNot(contains('content://')),
+          ),
+        ),
+      );
+    });
+
     test('returns the written name on success', () async {
       final written = await service.saveToDestination(
         localPath: localFile.path,
@@ -401,12 +451,12 @@ void main() {
   });
 
   group('ExportDestinationService.chooseFolder', () {
-    late _FakeSaf saf;
+    late FakeSaf saf;
     late ExportDestinationService service;
 
     setUp(() {
       FlutterSecureStorage.setMockInitialValues(<String, String>{});
-      saf = _FakeSaf();
+      saf = FakeSaf();
       service = ExportDestinationService(
         storage: SecureStorageService(storage: const FlutterSecureStorage()),
         saf: saf,
@@ -416,6 +466,25 @@ void main() {
     test('returns null when the user cancels the picker', () async {
       saf.pickResult = null;
       expect(await service.chooseFolder(), isNull);
+    });
+
+    test('throws ExportSaveException when the grant cannot be re-read after '
+        'a successful pick', () async {
+      saf.pickResult = pickedDir(_pickedUri);
+      saf.permissionsError = const SafIoException('', 'binder died');
+      await expectLater(
+        service.chooseFolder(),
+        throwsA(
+          isA<ExportSaveException>()
+              .having((e) => e.message, 'message', contains('folder access')),
+        ),
+      );
+      expect(
+        await SecureStorageService(storage: const FlutterSecureStorage())
+            .getDownloadsUri(),
+        isNull,
+        reason: 'nothing may be persisted until the grant is confirmed',
+      );
     });
 
     test('throws ExportSaveException when the picker itself fails', () async {
@@ -498,7 +567,7 @@ void main() {
     test('reports unavailable, not unset, when a configured folder cannot '
         'be checked', () async {
       FlutterSecureStorage.setMockInitialValues(<String, String>{});
-      final saf = _FakeSaf()
+      final saf = FakeSaf()
         ..pickResult = const SafDocumentFile(
           uri: _pickedUri,
           name: 'Download',
@@ -525,7 +594,7 @@ void main() {
   group('ExportDestinationService.forget', () {
     test('releases the persisted grant and clears the stored hint', () async {
       FlutterSecureStorage.setMockInitialValues(<String, String>{});
-      final saf = _FakeSaf()
+      final saf = FakeSaf()
         ..pickResult = const SafDocumentFile(
           uri: _pickedUri,
           name: 'Download',
@@ -547,7 +616,7 @@ void main() {
 
     test('is a no-op when nothing was ever configured', () async {
       FlutterSecureStorage.setMockInitialValues(<String, String>{});
-      final saf = _FakeSaf();
+      final saf = FakeSaf();
       final service = ExportDestinationService(
         storage: SecureStorageService(storage: const FlutterSecureStorage()),
         saf: saf,
@@ -561,7 +630,7 @@ void main() {
     test('still clears the stored hint even if releasing the grant fails',
         () async {
       FlutterSecureStorage.setMockInitialValues(<String, String>{});
-      final saf = _FakeSaf()
+      final saf = FakeSaf()
         ..pickResult = const SafDocumentFile(
           uri: _pickedUri,
           name: 'Download',
@@ -583,3 +652,9 @@ void main() {
     });
   });
 }
+
+
+int _utf8Length(String s) => s.runes.fold(
+      0,
+      (n, r) => n + (r < 0x80 ? 1 : r < 0x800 ? 2 : r < 0x10000 ? 3 : 4),
+    );
