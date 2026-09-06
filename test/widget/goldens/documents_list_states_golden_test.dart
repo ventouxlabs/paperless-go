@@ -7,6 +7,7 @@ import 'package:paperless_go/core/api/api_providers.dart';
 import 'package:paperless_go/core/theme.dart';
 import 'package:paperless_go/features/documents/documents_notifier.dart';
 import 'package:paperless_go/features/documents/documents_screen.dart';
+import 'package:paperless_go/features/upload_queue/upload_queue_notifier.dart';
 
 import '../../test_utils/golden_surface.dart';
 import '../../test_utils/load_app_fonts.dart';
@@ -41,6 +42,10 @@ Widget _harness(
       correspondentsProvider.overrideWith((ref) async => const {}),
       documentTypesProvider.overrideWith((ref) async => const {}),
       savedViewsProvider.overrideWith((ref) async => const []),
+      // The Library carries the upload-queue banner; an empty queue renders
+      // nothing, but the real provider would open a Drift stream whose
+      // close timer outlives the test.
+      pendingUploadsProvider.overrideWith((ref) => Stream.value(const [])),
     ],
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
