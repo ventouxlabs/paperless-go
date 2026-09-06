@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:paperless_go/app.dart';
 import 'package:paperless_go/core/auth/auth_provider.dart';
 import 'package:paperless_go/core/auth/secure_storage.dart';
+import 'package:paperless_go/core/settings/start_screen.dart';
 
 class _FakeAuthenticated extends AuthState {
   @override
@@ -74,6 +75,42 @@ void main() {
       harness.router.routerDelegate.currentConfiguration.uri.toString(),
       '/documents',
     );
+  });
+
+  testWidgets(
+      'with the setting pre-read (as main() does) the first redirect is '
+      'synchronous, so frame one already has the start screen and a '
+      'Navigator for a cold-start share to push onto', (tester) async {
+    FlutterSecureStorage.setMockInitialValues(<String, String>{});
+    final container = ProviderContainer(
+      overrides: [
+        authStateProvider.overrideWith(_FakeAuthenticated.new),
+        secureStorageProvider.overrideWithValue(
+          SecureStorageService(storage: const FlutterSecureStorage()),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(authStateProvider.future);
+    await container.read(startScreenProvider.future);
+    final router = container.read(routerProvider);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    // One frame, no settling: an async redirect would still be resolving.
+    await tester.pump();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/documents',
+    );
+    expect(rootNavigatorKey.currentContext, isNotNull);
+    // Drain the Library screen's own timers before teardown.
+    await tester.pumpAndSettle();
   });
 
   testWidgets('the app lands on Inbox when that start screen is stored',

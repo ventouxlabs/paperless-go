@@ -33,15 +33,21 @@ int uploadsNeedingAttention(Ref ref) {
       .length;
 }
 
-/// How many rows are simply waiting their turn (queued, retrying on
-/// schedule, or mid-upload) — everything that is not in
-/// [uploadsNeedingAttention].
+/// How many rows are simply waiting their turn for the active server:
+/// queued or retrying on schedule. Rows parked for another server profile
+/// are not "waiting to reach your server" and are left out, as are the
+/// failed/legacy rows [uploadsNeedingAttention] already speaks for.
 ///
 /// Hand-written rather than @riverpod: code generation cannot run on this
 /// toolchain (see export_destination_providers.dart).
 final uploadsWaitingProvider = Provider<int>((ref) {
   final rows = ref.watch(pendingUploadsProvider).valueOrNull ?? const [];
-  return rows.length - ref.watch(uploadsNeedingAttentionProvider);
+  final activeServer = ref.watch(authStateProvider).valueOrNull?.serverUrl;
+  return rows.where((r) {
+    final status = queueRowStatus(r, activeServer: activeServer);
+    return status == QueueRowStatus.waiting ||
+        status == QueueRowStatus.retrying;
+  }).length;
 });
 
 /// Queued rows the app cannot decode at all.

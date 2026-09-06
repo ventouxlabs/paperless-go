@@ -131,6 +131,19 @@ void main() {
       expect(handler.debugPendingRoute, isNull);
     });
 
+    test('a share arriving before there is a Navigator is queued, not dropped',
+        () {
+      // Frame one of a cold start: the key is not attached to anything yet.
+      final detachedKey = GlobalKey<NavigatorState>();
+      final handler = ShareIntentHandler(detachedKey, () => true);
+      handler.debugHandleSharedFiles([
+        const SharedFile(path: '/cache/a.pdf', filename: 'a.pdf',
+            mimeType: 'application/pdf'),
+      ]);
+      expect(handler.debugPendingRoute, isNotNull,
+          reason: 'the resume/auth flush must still have something to push');
+    });
+
     testWidgets('flushing with nothing pending is a no-op', (tester) async {
       final navigatorKey = await _pumpTestRouter(tester);
       final handler = ShareIntentHandler(navigatorKey, () => true);
