@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/auth_provider.dart';
@@ -43,14 +44,28 @@ final startScreenProvider =
 );
 
 class StartScreenNotifier extends AsyncNotifier<StartScreen> {
+  /// Never errors. The router awaits this to resolve `/`; a keystore that
+  /// cannot be read (backup restore, invalidated key) must degrade to the
+  /// default screen, not to a blank one with no way to reach login.
   @override
   Future<StartScreen> build() async {
-    final stored = await ref.watch(secureStorageProvider).getStartScreen();
-    return StartScreen.parse(stored);
+    try {
+      final stored = await ref.watch(secureStorageProvider).getStartScreen();
+      return StartScreen.parse(stored);
+    } on Exception catch (e) {
+      debugPrint('Start screen could not be read, using default: $e');
+      return StartScreen.fallback;
+    }
   }
 
+  /// Applies the choice now and persists it; a failed write keeps the
+  /// in-session choice and is logged rather than surfaced.
   Future<void> set(StartScreen screen) async {
     state = AsyncData(screen);
-    await ref.read(secureStorageProvider).saveStartScreen(screen.name);
+    try {
+      await ref.read(secureStorageProvider).saveStartScreen(screen.name);
+    } on Exception catch (e) {
+      debugPrint('Start screen could not be saved: $e');
+    }
   }
 }

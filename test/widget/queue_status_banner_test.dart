@@ -18,6 +18,7 @@ class _FakeAuthenticated extends AuthState {
 PendingUpload _row({
   int id = 1,
   bool isFailed = false,
+  int retryCount = 0,
   String? serverUrl = 'https://paperless.example.com',
 }) {
   return PendingUpload(
@@ -25,7 +26,7 @@ PendingUpload _row({
     filePath: '/queue/doc$id.pdf',
     filename: 'doc$id.pdf',
     queuedAt: DateTime(2026, 8, 1),
-    retryCount: 0,
+    retryCount: retryCount,
     isFailed: isFailed,
     serverUrl: serverUrl,
   );
@@ -72,6 +73,17 @@ void main() {
     expect(find.text('View'), findsOneWidget);
     expect(find.textContaining('never reached'), findsNothing);
     expect(find.byTooltip('Dismiss'), findsNothing);
+  });
+
+  testWidgets(
+      'rows parked for another server profile are not counted as waiting, '
+      'retrying rows are', (tester) async {
+    await pumpBanner(tester, [
+      _row(),
+      _row(id: 2, serverUrl: 'https://other.example.com'),
+      _row(id: 3, retryCount: 2),
+    ]);
+    expect(find.text('2 uploads waiting to reach your server'), findsOneWidget);
   });
 
   testWidgets('a single waiting upload reads in the singular', (tester) async {

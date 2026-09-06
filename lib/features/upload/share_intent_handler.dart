@@ -89,7 +89,13 @@ class ShareIntentHandler {
 
   void _pushRoute(ShareRoute route) {
     final context = _navigatorKey.currentContext;
-    if (context == null || !context.mounted) return;
+    // No Navigator yet (first frame still building): keep the share for the
+    // same resume/auth flush the branches below use, rather than dropping
+    // it with nothing to show for a file the user just handed us.
+    if (context == null || !context.mounted) {
+      _pendingRoute = route;
+      return;
+    }
     // A share/open-with arriving via onNewIntent on a warm resume (task
     // switched back to via "Open with") reaches here while the app
     // lifecycle is still `inactive` — measured on a Pixel 9 Pro Fold,

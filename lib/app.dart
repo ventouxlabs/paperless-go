@@ -82,19 +82,24 @@ GoRouter router(Ref ref) {
         ),
       ),
     ),
-    redirect: (context, state) async {
+    redirect: (context, state) {
       final authState = ref.read(authStateProvider);
       final scheme = state.uri.scheme;
       final isPlatformUri =
           scheme == 'content' || scheme == 'file' || scheme == 'paperlessgo';
       final isRoot = state.uri.path == '/';
 
-      // Only the landings below need the start-screen setting. Awaited (a
-      // keystore read, same as auth) so a cold start never flashes the
-      // default screen before hopping to the chosen one. Every other
-      // navigation stays synchronous.
-      Future<String> home() async =>
-          (await ref.read(startScreenProvider.future)).route;
+      // Only the landings below need the start-screen setting. main() reads
+      // it before the first frame, so this is synchronous in practice and
+      // frame one has a Navigator for a cold-start share to push onto. The
+      // async fallback exists for tests and for the (unexpected) case where
+      // the value is not loaded yet; it is never used for a plain
+      // navigation, which must stay synchronous.
+      FutureOr<String> home() {
+        final loaded = ref.read(startScreenProvider).valueOrNull;
+        if (loaded != null) return loaded.route;
+        return ref.read(startScreenProvider.future).then((s) => s.route);
+      }
 
       // Don't redirect while auth state is still loading from storage.
       //
@@ -105,7 +110,7 @@ GoRouter router(Ref ref) {
       // resolves, refreshListenable re-runs this and sends it where it belongs.
       // '/' gets the same treatment for the same reason: it has no page.
       if (authState.isLoading && !authState.hasError) {
-        return isPlatformUri || isRoot ? await home() : null;
+        return isPlatformUri || isRoot ? home() : null;
       }
       final isAuthenticated = authState.valueOrNull?.isAuthenticated ?? false;
       final isLoginRoute = state.matchedLocation == '/login';
@@ -126,18 +131,18 @@ GoRouter router(Ref ref) {
           final path = state.uri.host;
           if (path == 'scan' || path == 'upload') return '/scan';
         }
-        return await home();
+        return home();
       }
 
       // Dashboard was retired in the redesign; '/' resolves to the chosen
       // start screen. Keeping the redirect (rather than deleting the path)
       // preserves old deep links and widget intents.
       if (isRoot) {
-        return isAuthenticated ? await home() : '/login';
+        return isAuthenticated ? home() : '/login';
       }
 
       if (!isAuthenticated && !isLoginRoute) return '/login';
-      if (isAuthenticated && isLoginRoute) return await home();
+      if (isAuthenticated && isLoginRoute) return home();
       return null;
     },
     routes: [
