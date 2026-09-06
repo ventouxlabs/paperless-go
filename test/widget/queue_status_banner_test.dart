@@ -53,13 +53,30 @@ void main() {
     expect(find.textContaining('never reached'), findsNothing);
   });
 
-  testWidgets('says nothing for uploads that are merely waiting',
+  testWidgets('says nothing at all when the queue is empty', (tester) async {
+    await pumpBanner(tester, const []);
+    expect(find.textContaining('waiting'), findsNothing);
+    expect(find.text('View'), findsNothing);
+  });
+
+  testWidgets(
+      'uploads that are merely waiting get a quiet line, not the error banner',
       (tester) async {
-    // The property that keeps this from becoming noise. A queue full of
-    // documents waiting for signal is normal; interrupting the user about it
-    // trains them to ignore the banner on the day it matters.
+    // Waiting uploads used to be invisible here so the error banner never
+    // became noise. That left "what is still on my phone?" unanswerable
+    // without opening Settings, so waiting rows now get a neutral,
+    // non-dismissable line that opens the queue; the error banner keeps its
+    // own voice for rows that need a decision.
     await pumpBanner(tester, [_row(), _row(id: 2)]);
+    expect(find.text('2 uploads waiting to reach your server'), findsOneWidget);
+    expect(find.text('View'), findsOneWidget);
     expect(find.textContaining('never reached'), findsNothing);
+    expect(find.byTooltip('Dismiss'), findsNothing);
+  });
+
+  testWidgets('a single waiting upload reads in the singular', (tester) async {
+    await pumpBanner(tester, [_row()]);
+    expect(find.text('1 upload waiting to reach your server'), findsOneWidget);
   });
 
   testWidgets('speaks up when an upload has stopped trying', (tester) async {

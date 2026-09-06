@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'core/auth/auth_provider.dart';
+import 'core/settings/start_screen.dart';
 import 'core/router/scan_route_args.dart';
 import 'core/services/connectivity_service.dart';
 import 'core/services/edit_queue_processor.dart';
@@ -54,7 +55,9 @@ GoRouter router(Ref ref) {
 
   return GoRouter(
     navigatorKey: rootNavigatorKey,
-    initialLocation: '/inbox',
+    // '/' is not a screen; the redirect resolves it to the start screen
+    // the user chose (Library by default) once that setting has loaded.
+    initialLocation: '/',
     refreshListenable: refreshNotifier,
     errorBuilder: (context, state) => Scaffold(
       appBar: AppBar(title: const Text('Page not found')),
@@ -72,18 +75,26 @@ GoRouter router(Ref ref) {
                 style: Theme.of(context).textTheme.bodySmall),
             const SizedBox(height: Spacing.xl),
             FilledButton.tonal(
-              onPressed: () => GoRouter.of(context).go('/inbox'),
+              onPressed: () => GoRouter.of(context).go('/'),
               child: const Text('Go home'),
             ),
           ],
         ),
       ),
     ),
-    redirect: (context, state) {
+    redirect: (context, state) async {
       final authState = ref.read(authStateProvider);
       final scheme = state.uri.scheme;
       final isPlatformUri =
           scheme == 'content' || scheme == 'file' || scheme == 'paperlessgo';
+      final isRoot = state.uri.path == '/';
+
+      // Only the landings below need the start-screen setting. Awaited (a
+      // keystore read, same as auth) so a cold start never flashes the
+      // default screen before hopping to the chosen one. Every other
+      // navigation stays synchronous.
+      Future<String> home() async =>
+          (await ref.read(startScreenProvider.future)).route;
 
       // Don't redirect while auth state is still loading from storage.
       //
@@ -92,8 +103,9 @@ GoRouter router(Ref ref) {
       // "Page not found" for the frames between the share arriving and the
       // keystore read completing. Park it on a real screen instead — once auth
       // resolves, refreshListenable re-runs this and sends it where it belongs.
+      // '/' gets the same treatment for the same reason: it has no page.
       if (authState.isLoading && !authState.hasError) {
-        return isPlatformUri ? '/inbox' : null;
+        return isPlatformUri || isRoot ? await home() : null;
       }
       final isAuthenticated = authState.valueOrNull?.isAuthenticated ?? false;
       final isLoginRoute = state.matchedLocation == '/login';
@@ -106,24 +118,26 @@ GoRouter router(Ref ref) {
       // app also sets Intent.data) aren't guaranteed a second redirect pass,
       // and '/' has no route of its own since Dashboard was retired, so a
       // one-hop '/' would show "Page not found" instead of resolving further.
+      // A shared file is parked on the start screen; ShareIntentHandler then
+      // pushes the upload/scan screen on top of it.
       if (isPlatformUri) {
         if (!isAuthenticated) return '/login';
         if (scheme == 'paperlessgo') {
           final path = state.uri.host;
           if (path == 'scan' || path == 'upload') return '/scan';
         }
-        return '/inbox';
+        return await home();
       }
 
-      // Dashboard was retired in the redesign; '/' now lands on Inbox (the
-      // highest-frequency workflow). Keeping the redirect (rather than
-      // deleting the path) preserves old deep links and widget intents.
-      if (state.uri.path == '/') {
-        return isAuthenticated ? '/inbox' : '/login';
+      // Dashboard was retired in the redesign; '/' resolves to the chosen
+      // start screen. Keeping the redirect (rather than deleting the path)
+      // preserves old deep links and widget intents.
+      if (isRoot) {
+        return isAuthenticated ? await home() : '/login';
       }
 
       if (!isAuthenticated && !isLoginRoute) return '/login';
-      if (isAuthenticated && isLoginRoute) return '/inbox';
+      if (isAuthenticated && isLoginRoute) return await home();
       return null;
     },
     routes: [
@@ -404,7 +418,7 @@ class _AppShell extends ConsumerWidget {
   }
 }
 
-/// Redesigned bottom nav: 3 destinations (Inbox, Library, Chat) plus a
+/// Redesigned bottom nav: 3 destinations (Library, Inbox, Chat) plus a
 /// raised circular accent-filled Scan button in the center — the single
 /// visually-elevated primary action of the shell.
 class _ShellNavBar extends StatelessWidget {
@@ -429,18 +443,18 @@ class _ShellNavBar extends StatelessWidget {
           child: Row(
             children: [
               _NavItem(
-                icon: Icons.inbox_outlined,
-                selectedIcon: Icons.inbox,
-                label: 'Inbox',
-                selected: location.startsWith('/inbox'),
-                onTap: () => context.go('/inbox'),
-              ),
-              _NavItem(
                 icon: Icons.folder_outlined,
                 selectedIcon: Icons.folder,
                 label: 'Library',
                 selected: location.startsWith('/documents'),
                 onTap: () => context.go('/documents'),
+              ),
+              _NavItem(
+                icon: Icons.inbox_outlined,
+                selectedIcon: Icons.inbox,
+                label: 'Inbox',
+                selected: location.startsWith('/inbox'),
+                onTap: () => context.go('/inbox'),
               ),
               Expanded(
                 child: Center(
