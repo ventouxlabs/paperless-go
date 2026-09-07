@@ -49,6 +49,10 @@ class TrashNotifier extends _$TrashNotifier {
 
   @override
   Future<TrashState> build() async {
+    // Watched so a build that races the session restore rebuilds once auth
+    // lands, instead of sticking in NotAuthenticatedException (see
+    // DocumentsNotifier.build).
+    ref.watch(paperlessApiProvider);
     return _fetchPage(1);
   }
 

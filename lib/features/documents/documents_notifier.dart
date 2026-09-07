@@ -99,6 +99,11 @@ class DocumentsNotifier extends _$DocumentsNotifier {
 
   @override
   Future<DocumentsState> build() async {
+    // Watched, not read: on a cold start this builds while the session is
+    // still being restored from the keystore, and the client provider throws
+    // NotAuthenticatedException until it lands. A read would leave this
+    // notifier in that error for good; a watch rebuilds it once auth resolves.
+    ref.watch(paperlessApiProvider);
     return _fetchPage(1, const DocumentsFilter());
   }
 

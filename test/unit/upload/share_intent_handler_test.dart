@@ -16,7 +16,10 @@ Future<GlobalKey<NavigatorState>> _pumpTestRouter(WidgetTester tester) async {
     navigatorKey: navigatorKey,
     initialLocation: '/home',
     routes: [
-      GoRoute(path: '/home', builder: (_, __) => const Text('home')),
+      GoRoute(
+        path: '/home',
+        builder: (_, __) => const Scaffold(body: Text('home')),
+      ),
       GoRoute(path: '/scan/upload', builder: (_, __) => const Text('upload screen')),
       GoRoute(path: '/scan/review', builder: (_, __) => const Text('review screen')),
     ],
@@ -129,6 +132,37 @@ void main() {
 
       expect(find.text('review screen'), findsOneWidget);
       expect(handler.debugPendingRoute, isNull);
+    });
+
+    testWidgets(
+        'a share whose file could not be read tells the user instead of '
+        'silently opening the start screen', (tester) async {
+      final navigatorKey = await _pumpTestRouter(tester);
+      final handler = ShareIntentHandler(navigatorKey, () => true);
+
+      handler.debugHandleShare(const ShareBatch(files: [], requested: 1));
+      await tester.pumpAndSettle();
+
+      expect(find.text('home'), findsOneWidget, reason: 'nothing to open');
+      expect(find.textContaining('Could not read the shared file'),
+          findsOneWidget);
+      expect(handler.debugPendingRoute, isNull);
+    });
+
+    test('resolveShare distinguishes "no share" from "unreadable share"', () {
+      expect(resolveShare(const ShareBatch(files: [], requested: 0)), isNull);
+      expect(
+        resolveShare(const ShareBatch(files: [], requested: 2)),
+        isA<ShareUnreadable>().having((u) => u.count, 'count', 2),
+      );
+      expect(
+        resolveShare(ShareBatch(
+          files: [_shared('/tmp/a.pdf', mimeType: 'application/pdf')],
+          requested: 2,
+        )),
+        isA<ShareRoute>(),
+        reason: 'anything readable is still routed',
+      );
     });
 
     test('a share arriving before there is a Navigator is queued, not dropped',

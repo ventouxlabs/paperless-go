@@ -122,6 +122,15 @@ internal fun shouldMarkDelivered(resolvedCount: Int, requestedCount: Int): Boole
     requestedCount > 0 && resolvedCount >= requestedCount
 
 /**
+ * The payload handed to Dart: the files that could be read plus how many the
+ * intent asked for. A share whose every copy failed used to arrive as `[]`,
+ * indistinguishable from "no share at all", so the user saw the start screen
+ * and nothing else. Dart shows a notice when `requested` exceeds `files`.
+ */
+internal fun sharePayload(files: JSONArray, requested: Int): String =
+    JSONObject().put("files", files).put("requested", requested).toString()
+
+/**
  * Holds resolved shares until Dart's EventChannel listener attaches.
  *
  * Shares can be resolved before Flutter is listening — an `eventSink?.success`
@@ -202,9 +211,9 @@ class SharePlugin(
                 when (call.method) {
                     "getInitialShare" -> {
                         val current = activity.intent
-                        val files = if (current == null || wasDelivered(current)) {
+                        val payload = if (current == null || wasDelivered(current)) {
                             if (verbose()) Log.d(TAG, "getInitialShare: intent already delivered, skipping")
-                            JSONArray()
+                            sharePayload(JSONArray(), 0)
                         } else {
                             // Marked only on a non-empty result: copyToCache
                             // swallows IO failures and returns nothing, and
@@ -215,10 +224,10 @@ class SharePlugin(
                                 if (shouldMarkDelivered(resolved.files.length(), resolved.requested)) {
                                     markDelivered(current)
                                 }
-                                resolved.files
+                                sharePayload(resolved.files, resolved.requested)
                             }
                         }
-                        result.success(files.toString())
+                        result.success(payload)
                     }
                     else -> result.notImplemented()
                 }
@@ -245,13 +254,18 @@ class SharePlugin(
         }
         val resolved = resolveIntent(intent)
         val files = resolved.files
-        if (verbose()) Log.d(TAG, "onNewIntent: resolved ${files.length()} file(s)")
-        // See shouldMarkDelivered: an empty result means nothing was delivered,
-        // so the intent stays open rather than being burned on a failed copy.
-        if (!shouldMarkDelivered(files.length(), resolved.requested)) return
-        markDelivered(intent)
+        if (verbose()) Log.d(TAG, "onNewIntent: resolved ${files.length()} of ${resolved.requested} file(s)")
+        // An intent that carried no file at all is not a share; say nothing.
+        if (resolved.requested == 0) return
+        // See shouldMarkDelivered: the intent is only burned when every file
+        // was copied, so a failed copy stays retryable. The payload goes to
+        // Dart either way — a total failure must reach the user as a notice,
+        // not as the app silently opening on its start screen.
+        if (shouldMarkDelivered(files.length(), resolved.requested)) {
+            markDelivered(intent)
+        }
 
-        deliveries.deliver(files.toString())
+        deliveries.deliver(sharePayload(files, resolved.requested))
     }
 
     private fun wasDelivered(intent: Intent): Boolean = isAlreadyDelivered(

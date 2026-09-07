@@ -4,6 +4,8 @@ import android.content.Intent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.json.JSONArray
+import org.json.JSONObject
 import org.junit.Test
 
 /**
@@ -164,5 +166,27 @@ class ShareDeliveryMarkTest {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION,
             ),
         )
+    }
+}
+
+/**
+ * The payload must let Dart tell "no share" apart from "a share we could not
+ * read": both used to arrive as `[]`.
+ */
+class SharePayloadTest {
+    @Test
+    fun `a fully failed copy still reports how many files were asked for`() {
+        val payload = JSONObject(sharePayload(JSONArray(), 1))
+        assertEquals(0, payload.getJSONArray("files").length())
+        assertEquals(1, payload.getInt("requested"))
+    }
+
+    @Test
+    fun `readable files travel alongside the requested count`() {
+        val files = JSONArray().put(JSONObject().put("path", "/a.pdf"))
+        val payload = JSONObject(sharePayload(files, 2))
+        assertEquals(1, payload.getJSONArray("files").length())
+        assertEquals("/a.pdf", payload.getJSONArray("files").getJSONObject(0).getString("path"))
+        assertEquals(2, payload.getInt("requested"))
     }
 }
