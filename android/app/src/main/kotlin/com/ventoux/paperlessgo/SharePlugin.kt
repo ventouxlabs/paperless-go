@@ -110,16 +110,17 @@ internal fun isAlreadyDelivered(
 /**
  * Whether resolving an intent should burn it.
  *
- * Marks only when EVERY requested URI was delivered. copyToCache swallows IO
- * failures and returns nothing for that URI, so:
- *  - resolving nothing must not spend the intent, or a transient copy failure
- *    makes the share permanently unrecoverable;
- *  - a PARTIAL result must not spend it either. ACTION_SEND_MULTIPLE with one
- *    failed copy out of three would otherwise deliver two files and destroy the
- *    third with no trace.
+ * Marks whenever the intent carried at least one URI, because the payload
+ * ([sharePayload]) now goes to Dart in every case — readable files are
+ * routed and the shortfall is reported to the user. This used to mark only
+ * on a complete result so a failed copy stayed retryable, but "retryable"
+ * meant a later getInitialShare (Activity recreated with the same intent)
+ * silently re-copied the readable files and pushed the upload screen a
+ * second time, while the failure itself was never shown. An intent that
+ * carried nothing is never marked: it was not a share.
  */
 internal fun shouldMarkDelivered(resolvedCount: Int, requestedCount: Int): Boolean =
-    requestedCount > 0 && resolvedCount >= requestedCount
+    requestedCount > 0
 
 /**
  * The payload handed to Dart: the files that could be read plus how many the
@@ -257,10 +258,9 @@ class SharePlugin(
         if (verbose()) Log.d(TAG, "onNewIntent: resolved ${files.length()} of ${resolved.requested} file(s)")
         // An intent that carried no file at all is not a share; say nothing.
         if (resolved.requested == 0) return
-        // See shouldMarkDelivered: the intent is only burned when every file
-        // was copied, so a failed copy stays retryable. The payload goes to
-        // Dart either way — a total failure must reach the user as a notice,
-        // not as the app silently opening on its start screen.
+        // See shouldMarkDelivered: delivering the payload (even an empty one,
+        // which Dart turns into a notice) spends the intent, so a recreated
+        // Activity cannot re-copy and re-push the same share.
         if (shouldMarkDelivered(files.length(), resolved.requested)) {
             markDelivered(intent)
         }
