@@ -7,8 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-07
+
+### Added
+- **A download folder you choose, and files that actually land in it.** Settings > Storage > Download folder lets you pick any folder on the device or an SD card; the choice is remembered across restarts. Every place that offered Share now also offers "Save to folder" — the document list, a document's own menu, the compress action, the annotation editor, and bulk selection. Until now "Download" wrote to a private cache directory you could not open from any file manager and Android could clear at any time
+- **A start screen setting.** Settings > Appearance > Start screen picks whether the app opens on Library or Inbox
+- **The upload queue is visible before something goes wrong.** Library and Inbox now show a quiet line whenever documents are still waiting to reach your server, and tapping it opens the queue. Previously nothing appeared until an upload had already failed, so files waiting on a bad connection were invisible unless you went looking in Settings
+
 ### Changed
+- **The app opens on Library instead of Inbox**, and the tabs are ordered Library, Inbox, Scan, Chat to match. Inbox is a triage queue; it was the only way in, and it also sat in front of every file shared into the app
+- **Settings is reachable from Inbox**, not just from Library
 - An upload stuck in the queue for over 30 days without reaching the server now has its file removed from this device, freeing the storage it was holding. This only happens once the queue screen (Settings > Upload queue) can show you it happened, and only after two independent checks a day apart agree the upload is genuinely that old — a single clock hiccup on the device cannot delete anything. Previously the file was kept forever, growing unbounded
+
+### Fixed
+- **A file shared into the app that could not be read now says so.** If the app cannot open what another app handed it, you get "Could not read the shared file. Try sharing it again from the app it came from." Previously the app simply opened on its start screen with no upload and no explanation, which looked like the share had been ignored. Sharing several files at once where only some can be read now opens the readable ones and tells you how many were skipped
+- **Library no longer shows "Failed to load documents" right after opening the app.** The list asked the server for documents before the saved login had finished loading, failed, and stayed failed until you pressed Retry. Trash had the same fault
+- **"Open with" from a file manager no longer detours through the Inbox**, and a file shared while the app was returning from the background is no longer lost
+- The "Filed" confirmation in the Inbox dismisses itself again instead of staying on screen
 
 ## [1.2.2] - 2026-08-25
 

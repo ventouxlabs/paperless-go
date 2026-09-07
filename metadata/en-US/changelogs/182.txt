@@ -1,0 +1,13 @@
+New:
+* A download folder you choose. Settings > Storage > Download folder picks any folder on the device or an SD card and remembers it, and "Save to folder" now sits beside every Share action. "Download" used to write to a private cache folder no file manager could open
+* Settings > Appearance > Start screen chooses whether the app opens on Library or Inbox
+* Library and Inbox show when documents are still waiting to reach your server, and tap through to the upload queue
+
+Bug fixes:
+* A shared file the app cannot read now says so, instead of the app opening on its start screen with no upload and no explanation
+* Library no longer shows "Failed to load documents" right after the app opens
+* "Open with" no longer detours through the Inbox, and a file shared while the app was returning from the background is no longer lost
+
+Other changes:
+* The app opens on Library instead of Inbox, with tabs ordered Library, Inbox, Scan, Chat
+* Settings is reachable from the Inbox
