@@ -28,11 +28,39 @@ class SharedFile {
       );
 }
 
-List<SharedFile> _parseSharedFiles(String raw) {
-  final decoded = jsonDecode(raw) as List<dynamic>;
-  return decoded
+/// One delivery from the native side: the files it could read, and how
+/// many the intent actually carried. The gap between the two is a file the
+/// user handed us that we could not open (a provider that refused the read,
+/// a grant that did not arrive) — and that must be said out loud, not
+/// swallowed into "the app just opened on its start screen".
+@immutable
+class ShareBatch {
+  const ShareBatch({required this.files, required this.requested});
+
+  final List<SharedFile> files;
+  final int requested;
+
+  int get unreadable => requested - files.length;
+}
+
+ShareBatch _parseShare(String raw) {
+  final decoded = jsonDecode(raw);
+  // The pre-payload shape was a bare list; keep reading it so a mismatched
+  // native/Dart pair during an upgrade cannot drop a share.
+  if (decoded is List) {
+    final files = decoded
+        .map((e) => SharedFile.fromJson(e as Map<String, dynamic>))
+        .toList();
+    return ShareBatch(files: files, requested: files.length);
+  }
+  final map = decoded as Map<String, dynamic>;
+  final files = (map['files'] as List<dynamic>? ?? const [])
       .map((e) => SharedFile.fromJson(e as Map<String, dynamic>))
       .toList();
+  return ShareBatch(
+    files: files,
+    requested: map['requested'] as int? ?? files.length,
+  );
 }
 
 class ShareIntentHandler {
@@ -40,7 +68,7 @@ class ShareIntentHandler {
   bool _initialized = false;
   final GlobalKey<NavigatorState> _navigatorKey;
   final bool Function() _isAuthenticated;
-  ShareRoute? _pendingRoute;
+  ShareOutcome? _pendingRoute;
 
   ShareIntentHandler(this._navigatorKey, this._isAuthenticated);
 
@@ -50,19 +78,18 @@ class ShareIntentHandler {
 
     // Handle shared files when app is already running
     _subscription = _eventChannel.receiveBroadcastStream().listen((raw) {
-      _handleSharedFiles(_parseSharedFiles(raw as String));
+      _handleShare(_parseShare(raw as String));
     });
 
     // Handle shared files when app is opened via share
     _methodChannel.invokeMethod<String>('getInitialShare').then((raw) {
       if (raw == null) return;
-      final files = _parseSharedFiles(raw);
-      if (files.isNotEmpty) _handleSharedFiles(files);
+      _handleShare(_parseShare(raw));
     });
   }
 
-  void _handleSharedFiles(List<SharedFile> files) {
-    final route = resolveShareRoute(files);
+  void _handleShare(ShareBatch batch) {
+    final route = resolveShare(batch);
     if (route == null) return;
 
     // #24: a share/open-with arriving while logged out must not push
@@ -87,7 +114,7 @@ class ShareIntentHandler {
     _pushRoute(route);
   }
 
-  void _pushRoute(ShareRoute route) {
+  void _pushRoute(ShareOutcome route) {
     final context = _navigatorKey.currentContext;
     // No Navigator yet (first frame still building): keep the share for the
     // same resume/auth flush the branches below use, rather than dropping
@@ -111,7 +138,15 @@ class ShareIntentHandler {
       _pendingRoute = route;
       return;
     }
-    context.push(route.location, extra: route.extra);
+    switch (route) {
+      case ShareRoute(:final location, :final extra):
+        context.push(location, extra: extra);
+      case ShareUnreadable(:final count):
+        // Nothing to navigate to. Say so where the user is looking.
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(content: Text(unreadableShareMessage(count))),
+        );
+    }
   }
 
   void dispose() {
@@ -119,19 +154,50 @@ class ShareIntentHandler {
   }
 
   @visibleForTesting
-  void debugHandleSharedFiles(List<SharedFile> files) => _handleSharedFiles(files);
+  void debugHandleSharedFiles(List<SharedFile> files) =>
+      _handleShare(ShareBatch(files: files, requested: files.length));
 
   @visibleForTesting
-  ShareRoute? get debugPendingRoute => _pendingRoute;
+  void debugHandleShare(ShareBatch batch) => _handleShare(batch);
+
+  @visibleForTesting
+  ShareOutcome? get debugPendingRoute => _pendingRoute;
+}
+
+/// What a share turned into: somewhere to go, or something to say.
+@immutable
+sealed class ShareOutcome {
+  const ShareOutcome();
 }
 
 /// The navigation target resolved from a batch of shared files.
-@immutable
-class ShareRoute {
+class ShareRoute extends ShareOutcome {
   const ShareRoute(this.location, {this.extra});
 
   final String location;
   final Object? extra;
+}
+
+/// The intent carried [count] file(s) and none could be read.
+class ShareUnreadable extends ShareOutcome {
+  const ShareUnreadable(this.count);
+
+  final int count;
+}
+
+String unreadableShareMessage(int count) => count == 1
+    ? 'Could not read the shared file. Try sharing it again from the app '
+        'it came from.'
+    : 'Could not read the $count shared files. Try sharing them again from '
+        'the app they came from.';
+
+/// Resolves a whole delivery: a route when anything was readable, a notice
+/// when the intent carried files but none could be read, null for nothing.
+ShareOutcome? resolveShare(ShareBatch batch) {
+  final route = resolveShareRoute(batch.files);
+  if (route != null) return route;
+  if (batch.requested > 0) return ShareUnreadable(batch.requested);
+  return null;
 }
 
 /// Decide where shared files should go.
