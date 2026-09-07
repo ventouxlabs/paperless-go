@@ -91,11 +91,13 @@ class ShareMarkOnDeliveryTest {
     }
 
     @Test
-    fun `an empty resolve leaves the intent reusable`() {
-        // copyToCache swallows IO failures and returns nothing. Marking
-        // unconditionally turned a transient copy failure into a permanently
-        // unrecoverable share — cost a rebuild to find on device.
-        assertFalse(shouldMarkDelivered(resolvedCount = 0, requestedCount = 1))
+    fun `an empty resolve still burns the intent, because Dart reports it`() {
+        // Previously left unmarked so a transient copy failure stayed
+        // retryable. Now the empty payload reaches Dart as a "could not read
+        // the shared file" notice, and an unmarked intent would only let a
+        // recreated Activity deliver that same failure (or, for a partial
+        // result, re-copy and re-push the readable files) a second time.
+        assertTrue(shouldMarkDelivered(resolvedCount = 0, requestedCount = 1))
     }
 
     @Test
@@ -104,11 +106,11 @@ class ShareMarkOnDeliveryTest {
     }
 
     @Test
-    fun `a PARTIAL multi-file share does not burn the intent`() {
-        // ACTION_SEND_MULTIPLE with one failed copy out of three: marking on
-        // "non-empty" delivered two files and destroyed the third with no
-        // trace, because the intent was spent.
-        assertFalse(shouldMarkDelivered(resolvedCount = 2, requestedCount = 3))
+    fun `a PARTIAL multi-file share burns the intent too`() {
+        // The two readable files are routed and the third is reported as
+        // skipped; nothing is lost without trace any more, and re-resolving
+        // would duplicate the two that worked.
+        assertTrue(shouldMarkDelivered(resolvedCount = 2, requestedCount = 3))
     }
 
     @Test

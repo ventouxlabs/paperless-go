@@ -20,8 +20,14 @@ Future<GlobalKey<NavigatorState>> _pumpTestRouter(WidgetTester tester) async {
         path: '/home',
         builder: (_, __) => const Scaffold(body: Text('home')),
       ),
-      GoRoute(path: '/scan/upload', builder: (_, __) => const Text('upload screen')),
-      GoRoute(path: '/scan/review', builder: (_, __) => const Text('review screen')),
+      GoRoute(
+        path: '/scan/upload',
+        builder: (_, __) => const Scaffold(body: Text('upload screen')),
+      ),
+      GoRoute(
+        path: '/scan/review',
+        builder: (_, __) => const Scaffold(body: Text('review screen')),
+      ),
     ],
   );
   await tester.pumpWidget(MaterialApp.router(routerConfig: router));
@@ -147,6 +153,63 @@ void main() {
       expect(find.textContaining('Could not read the shared file'),
           findsOneWidget);
       expect(handler.debugPendingRoute, isNull);
+    });
+
+    testWidgets(
+        'a partly readable share opens the readable files and reports the '
+        'rest as skipped', (tester) async {
+      final navigatorKey = await _pumpTestRouter(tester);
+      final handler = ShareIntentHandler(navigatorKey, () => true);
+
+      handler.debugHandleShare(ShareBatch(
+        files: [_shared('/tmp/a.pdf', mimeType: 'application/pdf')],
+        requested: 3,
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('upload screen'), findsOneWidget);
+      expect(
+        find.text('2 shared files could not be read and were skipped.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+        'a failed share queued behind a readable one does not displace it',
+        (tester) async {
+      final navigatorKey = await _pumpTestRouter(tester);
+      var authenticated = false;
+      final handler = ShareIntentHandler(navigatorKey, () => authenticated);
+
+      handler.debugHandleSharedFiles([
+        _shared('/tmp/ok.pdf', mimeType: 'application/pdf'),
+      ]);
+      handler.debugHandleShare(const ShareBatch(files: [], requested: 1));
+      expect(handler.debugPending.length, 2);
+
+      authenticated = true;
+      handler.flushPendingShare();
+      await tester.pumpAndSettle();
+
+      expect(find.text('upload screen'), findsOneWidget,
+          reason: 'the file that copied fine still opens');
+      expect(find.textContaining('Could not read the shared file'),
+          findsOneWidget);
+      expect(handler.debugPending, isEmpty);
+    });
+
+    test('parseShare reads the native payload and shrugs off garbage', () {
+      final batch = parseShare(
+        '{"files":[{"path":"/c/a.pdf","filename":"a.pdf",'
+        '"mimeType":"application/pdf"}],"requested":2}',
+      );
+      expect(batch.files.single.filename, 'a.pdf');
+      expect(batch.requested, 2);
+      expect(batch.unreadable, 1);
+
+      final none = parseShare('not json');
+      expect(none.files, isEmpty);
+      expect(none.requested, 0);
     });
 
     test('resolveShare distinguishes "no share" from "unreadable share"', () {
