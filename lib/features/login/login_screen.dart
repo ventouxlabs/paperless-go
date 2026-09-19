@@ -5,6 +5,7 @@ import '../../core/auth/auth_provider.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/design_tokens.dart';
 import '../../core/api/api_error_mapper.dart';
+import '../../core/services/user_trust_store.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -51,6 +52,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _connectionReason = null;
     });
     try {
+      await UserTrustStore.refresh();
       final authService = ref.read(authServiceProvider);
       final probe = await authService.testConnection(url);
       if (mounted) {
@@ -81,6 +83,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final authNotifier = ref.read(authStateProvider.notifier);
 
     try {
+      await UserTrustStore.refresh();
       if (_useTokenLogin) {
         await authNotifier.loginWithToken(
           serverUrl,

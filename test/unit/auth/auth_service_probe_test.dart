@@ -11,6 +11,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:paperless_go/core/api/api_error_mapper.dart';
 import 'package:paperless_go/core/api/dio_client.dart';
 import 'package:paperless_go/core/auth/auth_service.dart';
 
@@ -28,6 +29,28 @@ class _ThrowingAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     throw buildError(options);
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
+/// Throws whatever [buildError] returns for every request, exactly as a real
+/// `IOHttpClientAdapter` would throw a raw socket/TLS exception — dio's own
+/// `assureDioException` is what wraps it into a `DioException`, unlike
+/// [_ThrowingAdapter] which hands dio an already-built `DioException`.
+class _ThrowingRawAdapter implements HttpClientAdapter {
+  _ThrowingRawAdapter(this.buildError);
+
+  final Object Function() buildError;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    throw buildError();
   }
 
   @override
@@ -132,6 +155,36 @@ void main() {
       expect(probe.reason, isNotNull);
       expect(probe.reason, isNot(contains('SocketException')));
       expect(probe.reason, isNot(contains('paperless.invalid')));
+    });
+
+    test(
+        'a real handshake failure (not a DioException — dio wraps it) '
+        'reports the untrusted-certificate reason', () async {
+      // Production path: dio's IOHttpClientAdapter lets a raw
+      // HandshakeException from the socket escape its `on SocketException`
+      // and wraps it via assureDioException as type: unknown. The adapter
+      // here throws the raw exception, not a DioException, so this exercises
+      // that wrapping instead of bypassing it.
+      final adapter = _ThrowingRawAdapter(
+        () => const HandshakeException(
+          'Handshake error in client',
+          OSError(
+            'CERTIFICATE_VERIFY_FAILED: unable to get local issuer '
+            'certificate(handshake.cc:393)',
+            0,
+          ),
+        ),
+      );
+      final authService = AuthService(
+        dioFactory: (url) => _dioWithAdapter(url, adapter),
+      );
+
+      final probe = await authService.testConnection(
+        'https://paperless.example.com',
+      );
+
+      expect(probe.ok, isFalse);
+      expect(probe.reason, equals(kUntrustedCertificateMessage));
     });
 
     test('connectionTimeout failure reports a timeout', () async {

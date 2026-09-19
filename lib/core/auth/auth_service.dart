@@ -61,6 +61,8 @@ class AuthService {
       DioExceptionType.receiveTimeout => 'Server took too long to respond',
       DioExceptionType.connectionError => friendlyApiMessage(e),
       DioExceptionType.badCertificate => friendlyApiMessage(e),
+      DioExceptionType.unknown when isUntrustedCertificateError(e) =>
+        friendlyApiMessage(e),
       _ => e.message ?? 'Connection failed (${e.type.name})',
     };
   }

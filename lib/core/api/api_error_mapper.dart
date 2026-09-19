@@ -1,5 +1,35 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+
+/// Shown for any TLS failure caused by an untrusted certificate — both the
+/// `badCertificate` type dio sets itself and a raw [HandshakeException] (see
+/// [isUntrustedCertificateError]). Mentions restarting the app because
+/// thumbnails use a process-lifetime `HttpClient` that a later refresh of
+/// the trust store can't reach — only a fresh app start rebuilds it.
+const kUntrustedCertificateMessage =
+    "The server's security certificate isn't trusted by this device. If "
+    'your server uses a private CA, install its root certificate under '
+    'Android Settings → Security → Install a certificate (CA certificate), '
+    'then restart Paperless Go.';
+
+/// Whether [error] is a TLS handshake failure caused by an untrusted
+/// certificate.
+///
+/// dio 5.9.1's `IOHttpClientAdapter` only produces
+/// [DioExceptionType.badCertificate] from its `validateCertificate` hook. A
+/// real CERTIFICATE_VERIFY_FAILED from the underlying socket instead arrives
+/// as a [HandshakeException] (a [TlsException], not a [SocketException]),
+/// which escapes the adapter's `on SocketException` and gets wrapped by
+/// `assureDioException` as `type: unknown` with no message.
+bool isUntrustedCertificateError(DioException error) {
+  if (error.type == DioExceptionType.badCertificate) return true;
+  final cause = error.error;
+  if (cause is! HandshakeException) return false;
+  final detail = cause.osError?.message ?? cause.message;
+  return detail.contains('CERTIFICATE_VERIFY_FAILED');
+}
 
 /// Maps an error (typically a [DioException]) to a short, user-friendly message.
 ///
@@ -24,6 +54,13 @@ String friendlyApiMessage(
     return true;
   }());
   if (error is DioException) {
+    if (isUntrustedCertificateError(error)) return kUntrustedCertificateMessage;
+    // A HandshakeException that isn't a trust failure (e.g. the port speaks
+    // plain HTTP and returns WRONG_VERSION_NUMBER) still needs its own
+    // message — it also arrives as type: unknown with no message.
+    if (error.error is HandshakeException) {
+      return 'Could not establish a secure connection to the server.';
+    }
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
@@ -33,7 +70,7 @@ String friendlyApiMessage(
       case DioExceptionType.connectionError:
         return 'Could not reach the server. Check your connection.';
       case DioExceptionType.badCertificate:
-        return "The server's security certificate could not be verified.";
+        return kUntrustedCertificateMessage;
       case DioExceptionType.cancel:
         // Callers that cancel intentionally (navigation, a superseded request)
         // should not render this — it's only meaningful for an unexpected cancel.

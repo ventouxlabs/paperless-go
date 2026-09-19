@@ -30,6 +30,7 @@ class MainActivity : FlutterFragmentActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         PdfRendererPlugin.register(flutterEngine)
+        UserCertificatesPlugin.register(flutterEngine)
         sharePlugin = SharePlugin(
             this,
             deliveredBeforeRestore = { shareDelivered },
