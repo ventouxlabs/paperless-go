@@ -24,6 +24,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _obscurePassword = true;
   bool _testing = false;
   bool? _connectionOk;
+  String? _connectionReason;
 
   @override
   void dispose() {
@@ -37,21 +38,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _testConnection() async {
     final url = _normalizeUrl(_serverUrlController.text.trim());
     if (url.isEmpty || url.startsWith('http://')) {
-      setState(() => _connectionOk = false);
+      setState(() {
+        _connectionOk = false;
+        _connectionReason = null;
+      });
       return;
     }
 
     setState(() {
       _testing = true;
       _connectionOk = null;
+      _connectionReason = null;
     });
-    final authService = ref.read(authServiceProvider);
-    final ok = await authService.testConnection(url);
-    if (mounted) {
-      setState(() {
-        _testing = false;
-        _connectionOk = ok;
-      });
+    try {
+      final authService = ref.read(authServiceProvider);
+      final probe = await authService.testConnection(url);
+      if (mounted) {
+        setState(() {
+          _connectionOk = probe.ok;
+          _connectionReason = probe.reason;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _testing = false);
+      }
     }
   }
 
@@ -102,6 +113,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final authState = ref.watch(authStateProvider);
     final isLoading = authState.isLoading;
     final tokens = AppTokens.of(context);
+    final connectionReason = _connectionReason;
 
     return Scaffold(
       body: SafeArea(
@@ -198,8 +210,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           }
                           return null;
                         },
-                        onChanged: (_) =>
-                            setState(() {}), // Refresh for HTTP warning
+                        onChanged: (_) => setState(() {
+                          // Refresh for HTTP warning, and drop any stale
+                          // reason from testing a previously-typed URL.
+                          _connectionOk = null;
+                          _connectionReason = null;
+                        }),
                       ),
 
                       // HTTP warning
@@ -220,6 +236,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               Expanded(
                                 child: Text(
                                   'http:// is blocked by this app — use https:// instead',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(color: tokens.stamp),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      // Connection test failure reason
+                      if (_connectionOk == false && connectionReason != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: Spacing.sm),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                size: 16,
+                                color: tokens.stamp,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  connectionReason,
                                   style: Theme.of(context).textTheme.bodySmall
                                       ?.copyWith(color: tokens.stamp),
                                 ),

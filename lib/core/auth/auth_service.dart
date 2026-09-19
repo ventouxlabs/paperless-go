@@ -1,12 +1,20 @@
 import 'package:dio/dio.dart';
+import '../api/api_error_mapper.dart';
 import '../api/dio_client.dart';
 import 'secure_storage.dart';
 
+/// Outcome of an unauthenticated reachability probe.
+typedef ConnectionProbe = ({bool ok, String? reason});
+
 class AuthService {
   final SecureStorageService _storage;
+  final Dio Function(String serverUrl) _dioFactory;
 
-  AuthService({SecureStorageService? storage})
-      : _storage = storage ?? SecureStorageService();
+  AuthService({
+    SecureStorageService? storage,
+    Dio Function(String serverUrl)? dioFactory,
+  })  : _storage = storage ?? SecureStorageService(),
+        _dioFactory = dioFactory ?? DioClient.createUnauthenticated;
 
   /// Login with username/password, returns the API token.
   Future<String> loginWithCredentials(String serverUrl, String username, String password) async {
@@ -51,16 +59,24 @@ class AuthService {
     return switch (e.type) {
       DioExceptionType.connectionTimeout => 'Connection timed out',
       DioExceptionType.receiveTimeout => 'Server took too long to respond',
-      DioExceptionType.connectionError =>
-        'Could not reach server: ${e.error ?? "connection refused"}',
+      DioExceptionType.connectionError => friendlyApiMessage(e),
+      DioExceptionType.badCertificate => friendlyApiMessage(e),
       _ => e.message ?? 'Connection failed (${e.type.name})',
     };
   }
 
   /// Test connection to server (unauthenticated).
-  Future<bool> testConnection(String serverUrl) async {
+  Future<ConnectionProbe> testConnection(String serverUrl) async {
+    // Reject an empty/missing host before ever building a Dio instance: an
+    // empty host (e.g. the default 'https://' field, or 'https://:8000')
+    // makes DioClient's BaseOptions.baseUrl setter throw an ArgumentError,
+    // which — unlike DioException — must not be caught here.
+    final host = Uri.tryParse(serverUrl)?.host;
+    if (host == null || host.isEmpty) {
+      return (ok: false, reason: 'Enter a valid URL');
+    }
     try {
-      final dio = DioClient.createUnauthenticated(serverUrl);
+      final dio = _dioFactory(serverUrl);
       await dio.get(
         'api/',
         options: Options(
@@ -68,9 +84,9 @@ class AuthService {
           validateStatus: (_) => true,
         ),
       );
-      return true;
-    } catch (_) {
-      return false;
+      return (ok: true, reason: null);
+    } on DioException catch (e) {
+      return (ok: false, reason: _describeConnectionError(e));
     }
   }
 
