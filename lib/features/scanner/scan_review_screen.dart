@@ -203,6 +203,13 @@ class _ScanReviewScreenState extends ConsumerState<ScanReviewScreen> {
         '_isTempPdf': true,
         'ocrImagePath': processed.first,
       });
+    } on PdfPageDecodeException catch (e) {
+      // friendlyApiMessage() only maps DioException and would otherwise fall
+      // through to its generic fallback, swallowing the specific
+      // "page N could not be read" message.
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
     } catch (e) {
       if (!mounted) return;
       setState(() => _isProcessing = false);

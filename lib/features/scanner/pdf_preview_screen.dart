@@ -88,6 +88,15 @@ class _PdfPreviewScreenState extends State<PdfPreviewScreen> {
         _fileSizeBytes = size;
         _isGenerating = false;
       });
+    } on PdfPageDecodeException catch (e) {
+      // friendlyApiMessage() only has a mapping for DioException — anything
+      // else falls through to its generic fallback, which would swallow the
+      // specific "page N could not be read" message. Show it directly.
+      if (!mounted || generation != _generation) return;
+      setState(() => _isGenerating = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
     } catch (e) {
       if (!mounted || generation != _generation) return;
       setState(() => _isGenerating = false);

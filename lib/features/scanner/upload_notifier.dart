@@ -124,6 +124,15 @@ class UploadNotifier extends _$UploadNotifier {
       state = UploadState(status: UploadStatus.processing, taskId: taskId);
 
       _startPolling(taskId);
+    } on PdfPageDecodeException catch (e) {
+      // Thrown by _imagesToPdf before any file is written, so there is no
+      // pdfPath to clean up here. friendlyApiMessage() has no mapping for
+      // this type and would otherwise show its generic fallback, swallowing
+      // the specific "page N could not be read" message.
+      state = UploadState(
+        status: UploadStatus.failure,
+        errorMessage: e.message,
+      );
     } catch (e) {
       // Clean up temp PDF on failure too (unless queuing for later)
       if (shouldQueueForLater(e) && pdfPath != null && safeFilename != null) {

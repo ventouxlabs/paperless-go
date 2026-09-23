@@ -1,11 +1,34 @@
 import 'dart:io';
 import 'dart:isolate';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+
+/// Thrown when one or more scanned pages could not be decoded, rather than
+/// letting them silently vanish from the generated PDF.
+class PdfPageDecodeException implements Exception {
+  PdfPageDecodeException(List<int> pageNumbers)
+      : pageNumbers = List.unmodifiable(pageNumbers);
+
+  /// 1-based page positions, in order, that could not be read.
+  final List<int> pageNumbers;
+
+  /// User-facing message: plain language, no internals, singular/plural aware.
+  String get message {
+    if (pageNumbers.length == 1) {
+      return 'Page ${pageNumbers.first} could not be read, so it would be '
+          'missing from the PDF. Re-scan that page and try again.';
+    }
+    return 'Pages ${pageNumbers.join(', ')} could not be read, so they '
+        'would be missing from the PDF. Re-scan those pages and try again.';
+  }
+
+  @override
+  String toString() => 'PdfPageDecodeException: $message';
+}
 
 /// Generates a well-formed PDF from a list of image files.
 class PdfGenerator {
@@ -70,31 +93,22 @@ Future<Uint8List> _buildPdf({
     producer: 'Paperless Go Scanner',
   );
 
-  for (final imageBytes in imageBytesList) {
-    Uint8List pdfImageBytes;
-    bool isLandscape;
+  final failedPages = <int>[];
 
-    if (preProcessed) {
-      // Images from the enhance pipeline are already EXIF-oriented and
-      // JPEG-encoded at quality 92. Skip the expensive decode→encode cycle
-      // and use the bytes directly.
-      final dims = _readJpegDimensions(imageBytes);
-      if (dims == null) continue;
-      isLandscape = dims.$1 > dims.$2;
-      pdfImageBytes = imageBytes;
-    } else {
-      // Raw camera images: must decode for EXIF orientation + re-encode
-      var decoded = img.decodeImage(imageBytes);
-      if (decoded == null) continue;
-      decoded = img.bakeOrientation(decoded);
-      isLandscape = decoded.width > decoded.height;
-      pdfImageBytes =
-          Uint8List.fromList(img.encodeJpg(decoded, quality: jpegQuality));
+  for (var i = 0; i < imageBytesList.length; i++) {
+    final page = _decodePageForPdf(
+      imageBytes: imageBytesList[i],
+      preProcessed: preProcessed,
+      jpegQuality: jpegQuality,
+    );
+    if (page == null) {
+      failedPages.add(i + 1);
+      continue;
     }
 
-    final pdfImage = pw.MemoryImage(pdfImageBytes);
+    final pdfImage = pw.MemoryImage(page.bytes);
     final format =
-        isLandscape ? PdfPageFormat.a4.landscape : PdfPageFormat.a4;
+        page.isLandscape ? PdfPageFormat.a4.landscape : PdfPageFormat.a4;
 
     pdf.addPage(
       pw.Page(
@@ -109,12 +123,73 @@ Future<Uint8List> _buildPdf({
     );
   }
 
+  // Fail loudly instead of silently returning a PDF with fewer pages than
+  // were scanned — thrown before pdf.save() so no truncated file is ever
+  // produced or written to disk by the caller.
+  if (failedPages.isNotEmpty) {
+    throw PdfPageDecodeException(failedPages);
+  }
+
   return pdf.save();
+}
+
+/// Decode one scanned page's bytes for embedding in the PDF, returning its
+/// orientation and final JPEG bytes, or null if the page could not be read
+/// at all.
+///
+/// When [preProcessed], first tries the header-only fast path
+/// ([readJpegDimensions]) and uses the bytes unchanged if it parses. A null
+/// there isn't necessarily a corrupt file — the scanner only recognizes the
+/// SOF0/1/2 markers and can desync on a marker layout it wasn't built to
+/// handle, e.g. fill bytes before a marker, which the JPEG spec permits —
+/// so fall back to the full decoder below instead of hard-blocking the
+/// upload over a page that may well be fine. Only when that also fails is
+/// the page truly unreadable.
+({bool isLandscape, Uint8List bytes})? _decodePageForPdf({
+  required Uint8List imageBytes,
+  required bool preProcessed,
+  required int jpegQuality,
+}) {
+  if (preProcessed) {
+    // Images from the enhance pipeline are already EXIF-oriented and
+    // JPEG-encoded at quality 92. Skip the expensive decode→encode cycle
+    // when the header parses cleanly.
+    final dims = readJpegDimensions(imageBytes);
+    if (dims != null) {
+      return (isLandscape: dims.$1 > dims.$2, bytes: imageBytes);
+    }
+  }
+  // Raw camera images always need this; preProcessed images fall back to it
+  // only when the fast header-only path above couldn't read the file.
+  return _decodeAndReencode(imageBytes, jpegQuality);
+}
+
+/// Decode [imageBytes] for EXIF orientation and re-encode as JPEG at
+/// [jpegQuality]. Returns null if the bytes could not be decoded at all.
+/// Re-encodes rather than trusting the original bytes: when this runs as
+/// [_decodePageForPdf]'s fallback, our own header parser already rejected
+/// them, so don't hand them to the PDF library's parser unchanged either.
+({bool isLandscape, Uint8List bytes})? _decodeAndReencode(
+  Uint8List imageBytes,
+  int jpegQuality,
+) {
+  var decoded = img.decodeImage(imageBytes);
+  if (decoded == null) return null;
+  decoded = img.bakeOrientation(decoded);
+  return (
+    isLandscape: decoded.width > decoded.height,
+    bytes: Uint8List.fromList(img.encodeJpg(decoded, quality: jpegQuality)),
+  );
 }
 
 /// Read JPEG width and height from the SOF marker without full decode.
 /// Returns (width, height) or null if not a valid JPEG.
-(int, int)? _readJpegDimensions(Uint8List data) {
+///
+/// Visible for testing so tests can assert directly on this parser's
+/// behavior instead of maintaining a separate copy of its logic, which
+/// would silently drift out of sync with any future change here.
+@visibleForTesting
+(int, int)? readJpegDimensions(Uint8List data) {
   if (data.length < 4 || data[0] != 0xFF || data[1] != 0xD8) return null;
   var i = 2;
   while (i < data.length - 1) {
