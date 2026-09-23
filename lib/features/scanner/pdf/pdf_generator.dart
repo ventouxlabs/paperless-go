@@ -145,6 +145,19 @@ Future<Uint8List> _buildPdf({
 /// so fall back to the full decoder below instead of hard-blocking the
 /// upload over a page that may well be fine. Only when that also fails is
 /// the page truly unreadable.
+///
+/// The fast path also requires the image to carry no dimension-transposing
+/// EXIF orientation (see [_hasTransposingOrientation]) — see issue #37:
+/// `scan_review_screen.dart` substitutes the original camera file for a
+/// page whose enhancement threw, while the whole batch is still marked
+/// `preProcessed: true`. That raw file, unlike enhance-pipeline output, can
+/// carry an EXIF orientation tag, and the `pdf` package's own image
+/// renderer honors it when drawing (pdf-3.11.3 `obj/image.dart:133`,
+/// `orientation ?? info.orientation`). If that tag swaps width and height
+/// but we trust the stored SOF dimensions anyway, the page format picked
+/// here disagrees with what actually gets rendered. Non-transposing
+/// orientations don't swap width and height, so the stored dimensions —
+/// and the fast path — stay valid for those.
 ({bool isLandscape, Uint8List bytes})? _decodePageForPdf({
   required Uint8List imageBytes,
   required bool preProcessed,
@@ -153,15 +166,54 @@ Future<Uint8List> _buildPdf({
   if (preProcessed) {
     // Images from the enhance pipeline are already EXIF-oriented and
     // JPEG-encoded at quality 92. Skip the expensive decode→encode cycle
-    // when the header parses cleanly.
+    // when the header parses cleanly and the orientation check above holds.
     final dims = readJpegDimensions(imageBytes);
-    if (dims != null) {
+    if (dims != null && !_hasTransposingOrientation(imageBytes)) {
       return (isLandscape: dims.$1 > dims.$2, bytes: imageBytes);
     }
   }
   // Raw camera images always need this; preProcessed images fall back to it
-  // only when the fast header-only path above couldn't read the file.
+  // when the fast header-only path above couldn't read the file, or read it
+  // but found a rotation the stored dimensions don't account for.
   return _decodeAndReencode(imageBytes, jpegQuality);
+}
+
+/// The four [PdfImageOrientation] values that swap width and height when
+/// applied (EXIF orientations 5-8: the ones with a 90°/270° component,
+/// plain or mirrored). Matches the exact predicate the `pdf` package's own
+/// renderer uses to size a page — `PdfImage.width`/`height` in
+/// `obj/image.dart`: `orientation.index >= 4`, over this same enum, in this
+/// same declaration order — so the rotation this reads can't disagree with
+/// the one the renderer applies. The page's width and height still come
+/// from [readJpegDimensions] on the fast path, which is sound only because
+/// that path survives exclusively for non-transposing orientations, where
+/// the stored dimensions are the drawn ones.
+const _transposingOrientations = {
+  PdfImageOrientation.leftTop,
+  PdfImageOrientation.rightTop,
+  PdfImageOrientation.rightBottom,
+  PdfImageOrientation.leftBottom,
+};
+
+/// True if [imageBytes] carries an EXIF orientation that transposes width
+/// and height. See [_decodePageForPdf] for why this gates the fast path.
+///
+/// Asks the `pdf` package's own [PdfJpegInfo] rather than parsing Exif
+/// ourselves: `pw.MemoryImage` already calls it internally on the bytes it
+/// embeds, to get the orientation it renders with. Reusing it here means
+/// our gate agrees with the renderer by construction, instead of by two
+/// independent Exif parsers happening to produce the same answer.
+///
+/// This does not add a new way for this call to fail. It runs only when
+/// [readJpegDimensions] already succeeded — exactly the condition under
+/// which the fast path returns [imageBytes] unchanged — and `_buildPdf`
+/// then hands those same bytes to `pw.MemoryImage`, whose factory
+/// constructs [PdfJpegInfo] eagerly over them. So anything that throws
+/// here threw there before this check existed. (On the slow path
+/// `pw.MemoryImage` sees re-encoded bytes instead, but this check never
+/// runs for those.)
+bool _hasTransposingOrientation(Uint8List imageBytes) {
+  return _transposingOrientations.contains(PdfJpegInfo(imageBytes).orientation);
 }
 
 /// Decode [imageBytes] for EXIF orientation and re-encode as JPEG at
