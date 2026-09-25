@@ -1,0 +1,4 @@
+* Servers behind your own certificate authority now work: install the CA's root certificate under Android Settings > Security > Encryption & credentials, then restart the app
+* The connection test on the login screen now says why it failed, instead of showing only a red exclamation mark
+* A scanned page that cannot be read is named and re-scanned, instead of being silently left out of the PDF
+* A scanned photo whose enhancement failed no longer lands sideways on the page

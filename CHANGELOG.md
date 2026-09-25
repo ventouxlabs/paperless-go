@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-09-24
+
+### Added
+- **A server behind your own certificate authority now works.** If your Paperless-ngx runs on a private address or a `.lan` name, no public authority will issue it a certificate, so people issue their own — and installing that root certificate on the phone had no effect, because the app never read the certificates you install yourself, only the ones that ship with Android. Install your CA's root under Android Settings > Security > Encryption & credentials > Install a certificate > CA certificate, restart Paperless Go, and it connects
+
+### Fixed
+- **The connection test on the login screen says why it failed.** It showed a red exclamation mark and nothing else, whatever had gone wrong — an unreachable host, a timeout and an untrusted certificate all looked identical. It now names the reason, and for a certificate it cannot verify it explains how to install your CA's root
+- **A scanned page that cannot be read is no longer left out of the PDF in silence.** If one image in a scan failed to decode it was quietly skipped, so a five-page scan could upload as four pages. The preview hid this, because it showed the photos you took rather than the pages of the finished PDF. Such a page is now named and the PDF is not built until it is re-scanned
+- **A scanned photo no longer lands sideways on the page.** When enhancement failed for one page of a scan, that page kept the camera's own rotation, which the PDF applied but the page shape did not account for — leaving an upright image squeezed into a narrow strip across a sideways page
+
 ## [1.3.0] - 2026-09-07
 
 ### Added
