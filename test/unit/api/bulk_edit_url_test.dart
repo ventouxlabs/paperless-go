@@ -113,8 +113,8 @@ void main() {
       expect(data['parameters'], equals({'add_tags': [5, 6], 'remove_tags': [3]}));
     });
 
-    test('omits parameters key when not provided (e.g. trash)', () async {
-      await api.bulkEdit(documents: [1], method: 'trash');
+    test('omits parameters key when not provided (e.g. delete)', () async {
+      await api.bulkEdit(documents: [1], method: 'delete');
 
       final data = adapter.requests.first.data as Map<String, dynamic>;
       expect(data.containsKey('parameters'), isFalse);
@@ -128,6 +128,30 @@ void main() {
       );
 
       expect(adapter.requests.first.method, equals('POST'));
+    });
+  });
+
+  // Regression test for #39: 'trash' is not a bulk_edit method on any
+  // Paperless-ngx version — the server answered 400 and delete always failed.
+  group('PaperlessApi.trashDocuments', () {
+    late _RecordingAdapter adapter;
+    late PaperlessApi api;
+
+    setUp(() {
+      adapter = _RecordingAdapter();
+      api = _makeApi(adapter);
+    });
+
+    test('soft-deletes via bulk_edit method delete', () async {
+      await api.trashDocuments([3, 4]);
+
+      expect(adapter.requests, hasLength(1));
+      final request = adapter.requests.first;
+      expect(request.method, equals('POST'));
+      expect(request.path, equals('api/documents/bulk_edit/'));
+      final data = request.data as Map<String, dynamic>;
+      expect(data['method'], equals('delete'));
+      expect(data['documents'], equals([3, 4]));
     });
   });
 }

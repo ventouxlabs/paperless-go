@@ -440,10 +440,18 @@ class PaperlessApi {
   }
 
   /// Move documents to trash (soft delete).
+  ///
+  /// Uses the legacy bulk_edit `delete` method, not `trash` — Paperless-ngx
+  /// never accepted 'trash' as a bulk_edit method. `delete` is a legacy
+  /// method (accepted at the API version this app sends, version 9) that
+  /// upstream soft-deletes into the trash; it will be dropped once API v9
+  /// is retired, and its replacement `/api/documents/delete/` only exists
+  /// on Paperless-ngx 3.x. `delete` is the one call that works across both
+  /// 2.x and 3.x.
   Future<void> trashDocuments(List<int> documentIds) async {
     await bulkEdit(
       documents: documentIds,
-      method: 'trash',
+      method: 'delete',
     );
   }
 
