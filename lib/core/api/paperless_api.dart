@@ -462,6 +462,19 @@ class PaperlessApi {
     );
   }
 
+  /// Re-run OCR on documents.
+  ///
+  /// Uses bulk_edit `reprocess` — 'redo_ocr' is not an accepted choice on
+  /// Paperless-ngx 2.20 or 3.x. Like `delete`, `reprocess` is a legacy
+  /// method upstream will drop with API v9 (replacement
+  /// `/api/documents/reprocess/` is 3.x-only).
+  Future<void> reprocessDocuments(List<int> documentIds) async {
+    await bulkEdit(
+      documents: documentIds,
+      method: 'reprocess',
+    );
+  }
+
   // Share Links
 
   /// Get share links for a document.

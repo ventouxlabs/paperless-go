@@ -154,4 +154,27 @@ void main() {
       expect(data['documents'], equals([3, 4]));
     });
   });
+
+  // Regression test for #41: 'redo_ocr' is not an accepted bulk_edit choice
+  // on Paperless-ngx 2.20 or 3.x — bulk "Redo OCR" was rejected with a 400.
+  group('PaperlessApi.reprocessDocuments', () {
+    late _RecordingAdapter adapter;
+    late PaperlessApi api;
+
+    setUp(() {
+      adapter = _RecordingAdapter();
+      api = _makeApi(adapter);
+    });
+
+    test('re-runs OCR via bulk_edit method reprocess', () async {
+      await api.reprocessDocuments([5, 6]);
+
+      expect(adapter.requests, hasLength(1));
+      final request = adapter.requests.first;
+      expect(request.path, equals('api/documents/bulk_edit/'));
+      final data = request.data as Map<String, dynamic>;
+      expect(data['method'], equals('reprocess'));
+      expect(data['documents'], equals([5, 6]));
+    });
+  });
 }

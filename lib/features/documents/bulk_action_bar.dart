@@ -444,7 +444,7 @@ class BulkActionBar extends ConsumerWidget {
       final count = selectedIds.length;
       try {
         final api = ref.read(paperlessApiProvider);
-        await api.bulkEdit(documents: selectedIds.toList(), method: 'redo_ocr');
+        await api.reprocessDocuments(selectedIds.toList());
         if (!context.mounted) return;
         onClearSelection();
         ScaffoldMessenger.of(context).showSnackBar(
