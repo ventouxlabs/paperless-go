@@ -38,11 +38,6 @@ class PaperlessApi {
       'ordering': ordering,
       'truncate_content': truncateContent,
     };
-    // Note: `is_in_trash` is not a real filter on /api/documents/ — DRF
-    // silently ignores unknown filters, so this parameter currently has no
-    // effect. Left here as a no-op rather than removed; the real trash
-    // endpoint is /api/trash/ (see getTrashedDocuments).
-    params['is_in_trash'] = false;
     if (query != null && query.isNotEmpty) params['query'] = query;
     if (isInInbox != null) params['is_in_inbox'] = isInInbox;
     if (moreLikeId != null) params['more_like_id'] = moreLikeId;
