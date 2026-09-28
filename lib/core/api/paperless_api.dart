@@ -38,7 +38,10 @@ class PaperlessApi {
       'ordering': ordering,
       'truncate_content': truncateContent,
     };
-    // Exclude trashed documents by default so they only appear in the Trash screen
+    // Note: `is_in_trash` is not a real filter on /api/documents/ — DRF
+    // silently ignores unknown filters, so this parameter currently has no
+    // effect. Left here as a no-op rather than removed; the real trash
+    // endpoint is /api/trash/ (see getTrashedDocuments).
     params['is_in_trash'] = false;
     if (query != null && query.isNotEmpty) params['query'] = query;
     if (isInInbox != null) params['is_in_inbox'] = isInInbox;
@@ -405,17 +408,19 @@ class PaperlessApi {
 
   // Trash
 
-  /// Get trashed documents.
+  /// Get trashed documents via the real trash endpoint (since ngx 2.10).
+  ///
+  /// There is no `is_in_trash` filter on `/api/documents/` — DRF ignores
+  /// unknown filters, so that endpoint always returns live documents.
+  /// `/api/trash/` has no ordering backend, so `ordering` /
+  /// `truncate_content` are not supported here.
   Future<PaginatedResponse<Document>> getTrashedDocuments({
     int page = 1,
     int pageSize = 25,
   }) async {
-    final response = await _dio.get('api/documents/', queryParameters: {
+    final response = await _dio.get('api/trash/', queryParameters: {
       'page': page,
       'page_size': pageSize,
-      'truncate_content': true,
-      'is_in_trash': true,
-      'ordering': '-modified',
     });
     return PaginatedResponse.fromJson(
       response.data as Map<String, dynamic>,
@@ -423,20 +428,22 @@ class PaperlessApi {
     );
   }
 
-  /// Restore documents from trash.
+  /// Restore documents from trash via the real trash endpoint.
   Future<void> restoreFromTrash(List<int> documentIds) async {
-    await bulkEdit(
-      documents: documentIds,
-      method: 'undo_delete',
-    );
+    await _dio.post('api/trash/', data: {
+      'documents': documentIds,
+      'action': 'restore',
+    });
   }
 
-  /// Permanently delete documents from trash.
+  /// Permanently delete documents from trash via the real trash endpoint.
+  ///
+  /// This is not reversible.
   Future<void> emptyTrash(List<int> documentIds) async {
-    await bulkEdit(
-      documents: documentIds,
-      method: 'delete',
-    );
+    await _dio.post('api/trash/', data: {
+      'documents': documentIds,
+      'action': 'empty',
+    });
   }
 
   /// Move documents to trash (soft delete).
