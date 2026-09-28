@@ -113,7 +113,8 @@ class TrashNotifier extends _$TrashNotifier {
     state = await AsyncValue.guard(() => _fetchPage(1));
   }
 
-  Future<bool> restoreDocuments(List<int> ids) async {
+  /// Returns null on success, or a user-facing reason on failure.
+  Future<String?> restoreDocuments(List<int> ids) async {
     try {
       final api = ref.read(paperlessApiProvider);
       await api.restoreFromTrash(ids);
@@ -122,20 +123,21 @@ class TrashNotifier extends _$TrashNotifier {
       ref.invalidate(documentsNotifierProvider);
       ref.invalidate(inboxNotifierProvider);
       await refresh();
-      return true;
-    } catch (_) {
-      return false;
+      return null;
+    } on Exception catch (e) {
+      return friendlyApiMessage(e);
     }
   }
 
-  Future<bool> permanentlyDelete(List<int> ids) async {
+  /// Returns null on success, or a user-facing reason on failure.
+  Future<String?> permanentlyDelete(List<int> ids) async {
     try {
       final api = ref.read(paperlessApiProvider);
       await api.emptyTrash(ids);
       await refresh();
-      return true;
-    } catch (_) {
-      return false;
+      return null;
+    } on Exception catch (e) {
+      return friendlyApiMessage(e);
     }
   }
 }

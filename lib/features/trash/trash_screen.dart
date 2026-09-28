@@ -183,13 +183,13 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
   }
 
   Future<void> _restore(BuildContext context, List<int> ids) async {
-    final success = await ref.read(trashNotifierProvider.notifier).restoreDocuments(ids);
+    final error = await ref.read(trashNotifierProvider.notifier).restoreDocuments(ids);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(success
+          content: Text(error == null
               ? '${ids.length} document(s) restored'
-              : 'Failed to restore documents'),
+              : 'Failed to restore documents: $error'),
         ),
       );
     }
@@ -220,15 +220,15 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
     );
 
     if (confirmed == true) {
-      final success = await ref.read(trashNotifierProvider.notifier).permanentlyDelete(ids);
+      final error = await ref.read(trashNotifierProvider.notifier).permanentlyDelete(ids);
       if (!context.mounted) return;
       _clearSelection();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(success
+            content: Text(error == null
                 ? '${ids.length} document(s) permanently deleted'
-                : 'Failed to delete documents'),
+                : 'Failed to delete documents: $error'),
           ),
         );
       }

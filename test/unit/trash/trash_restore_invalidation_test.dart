@@ -74,13 +74,13 @@ void main() {
     expect(_CountingDocuments.builds, 1);
     expect(_CountingInbox.builds, 1);
 
-    final ok = await container
+    final error = await container
         .read(trashNotifierProvider.notifier)
         .restoreDocuments([7]);
     await container.read(documentsNotifierProvider.future);
     await container.read(inboxNotifierProvider.future);
 
-    expect(ok, isTrue);
+    expect(error, isNull);
     expect(_CountingDocuments.builds, 2);
     expect(_CountingInbox.builds, 2);
   });
