@@ -2,6 +2,8 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../core/api/api_providers.dart';
 import '../../core/models/document.dart';
 import '../../core/api/api_error_mapper.dart';
+import '../documents/documents_notifier.dart';
+import '../inbox/inbox_notifier.dart';
 
 part 'trash_notifier.g.dart';
 
@@ -115,6 +117,10 @@ class TrashNotifier extends _$TrashNotifier {
     try {
       final api = ref.read(paperlessApiProvider);
       await api.restoreFromTrash(ids);
+      // Restored documents belong in these lists again; both stay mounted
+      // under the pushed /trash route, so rebuild them now.
+      ref.invalidate(documentsNotifierProvider);
+      ref.invalidate(inboxNotifierProvider);
       await refresh();
       return true;
     } catch (_) {
