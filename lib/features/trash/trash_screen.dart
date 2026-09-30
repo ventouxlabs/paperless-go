@@ -1,8 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import '../../core/models/document.dart';
 import 'trash_notifier.dart';
 import '../../shared/widgets/paginated_list_view.dart';
+
+/// Subtitle for a trashed document. `modified` is set when the document is
+/// moved to the trash (and trashed documents can't be edited); without it,
+/// show no date rather than passing the created date off as the deletion.
+String trashDeletedLabel(Document doc) {
+  final modified = doc.modified;
+  return modified == null
+      ? 'Deleted'
+      : 'Deleted ${DateFormat.yMMMd().format(modified)}';
+}
 
 class TrashScreen extends ConsumerStatefulWidget {
   const TrashScreen({super.key});
@@ -124,11 +135,7 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
                         : const Icon(Icons.description_outlined),
                     title: Text(doc.title,
                         maxLines: 1, overflow: TextOverflow.ellipsis),
-                    subtitle: Text(
-                      doc.modified != null
-                          ? 'Deleted ${DateFormat.yMMMd().format(doc.modified!)}'
-                          : doc.created != null ? 'Deleted ${DateFormat.yMMMd().format(doc.created!)}' : 'Deleted',
-                    ),
+                    subtitle: Text(trashDeletedLabel(doc)),
                     selected: isSelected,
                     onTap: () => _toggleSelection(doc.id),
                     trailing: !_isSelecting
