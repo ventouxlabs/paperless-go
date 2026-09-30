@@ -58,6 +58,12 @@ class SecureStorageService {
   Future<String?> getStartScreen() =>
       _storage.read(key: StorageKeys.startScreen);
 
+  Future<void> saveScannerPreset(String name) =>
+      _storage.write(key: StorageKeys.scannerPreset, value: name);
+
+  Future<String?> getScannerPreset() =>
+      _storage.read(key: StorageKeys.scannerPreset);
+
   Future<void> saveBiometricLock(bool enabled) =>
       _storage.write(key: StorageKeys.biometricLock, value: enabled.toString());
 

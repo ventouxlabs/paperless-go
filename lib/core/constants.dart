@@ -21,4 +21,5 @@ class StorageKeys {
   static const String activeProfileIndex = 'active_profile_index';
   static const String downloadsUri = 'downloads_uri';
   static const String downloadsName = 'downloads_name';
+  static const String scannerPreset = 'scanner_preset';
 }

@@ -79,7 +79,7 @@ class ScannerScreen extends ConsumerWidget {
                       tooltip: preset.description,
                       onSelected: (_) => ref
                           .read(selectedPresetProvider.notifier)
-                          .state = preset,
+                          .select(preset),
                     );
                   },
                 ),
