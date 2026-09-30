@@ -73,9 +73,9 @@ void main() {
       final request = adapter.requests.first;
       expect(request.method, equals('GET'));
       expect(request.path, equals('api/trash/'));
-      expect(request.path, isNot(equals('api/documents/bulk_edit/')));
-      expect(request.queryParameters['page'], equals(2));
-      expect(request.queryParameters['page_size'], equals(10));
+      // Exact match: the old is_in_trash / ordering / truncate_content
+      // params must not come back (the trash endpoint ignores them).
+      expect(request.queryParameters, equals({'page': 2, 'page_size': 10}));
 
       expect(page.count, equals(2));
       expect(page.results, hasLength(2));
@@ -93,7 +93,6 @@ void main() {
       final request = adapter.requests.first;
       expect(request.method, equals('POST'));
       expect(request.path, equals('api/trash/'));
-      expect(request.path, isNot(equals('api/documents/bulk_edit/')));
 
       final data = request.data as Map<String, dynamic>;
       expect(data, equals({'documents': [1, 2], 'action': 'restore'}));
@@ -111,16 +110,14 @@ void main() {
       final request = adapter.requests.first;
       expect(request.method, equals('POST'));
       expect(request.path, equals('api/trash/'));
-      expect(request.path, isNot(equals('api/documents/bulk_edit/')));
 
       final data = request.data as Map<String, dynamic>;
       expect(
         data,
         equals({'documents': [5], 'action': 'empty'}),
         reason:
-            'emptyTrash must only ever target documents that came from '
-            'getTrashedDocuments (api/trash/), never a bulk_edit call that '
-            'could reach live documents.',
+            'A permanent delete must go to the trash endpoint, which rejects '
+            'the whole request if any id is not already in the trash.',
       );
     });
   });
