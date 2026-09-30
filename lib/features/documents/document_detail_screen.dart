@@ -801,7 +801,7 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
               SnackBar(content: Text(e.message)),
             );
           }
-        } catch (e) {
+        } on Exception catch (e) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Failed to load document: ${friendlyApiMessage(e)}')),

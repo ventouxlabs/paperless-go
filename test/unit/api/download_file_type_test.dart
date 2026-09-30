@@ -60,6 +60,24 @@ void main() {
       expect(downloadExtension(contentType: 'application/octet-stream'), 'bin');
     });
 
+    test('a filename* that is not valid UTF-8 never aborts the download', () {
+      // RFC 5987 allows other charsets; Uri.decodeComponent would throw a
+      // FormatException on these. The extension part is plain ASCII anyway.
+      expect(
+        downloadExtension(
+          contentDisposition: "attachment; filename*=iso-8859-1''caf%E9.txt",
+        ),
+        'txt',
+      );
+      expect(
+        downloadExtension(
+          contentDisposition: "attachment; filename*=utf-8''a%FF.pdf",
+          contentType: 'text/plain',
+        ),
+        'pdf',
+      );
+    });
+
     test('only ever takes a short alphanumeric extension from the headers', () {
       // A hostile or malformed header must not smuggle a path or a long
       // suffix into the local file name.

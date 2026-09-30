@@ -33,9 +33,15 @@ class DocumentPreviewScreen extends ConsumerStatefulWidget {
 }
 
 class _DocumentPreviewScreenState extends ConsumerState<DocumentPreviewScreen> {
-  late final Future<_Preview> _preview = _load();
+  late final Future<_Preview> _preview;
   PdfControllerPinch? _pdfController;
   bool _disposed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _preview = _load();
+  }
 
   Future<_Preview> _load() async {
     final api = ref.read(paperlessApiProvider);
@@ -117,10 +123,10 @@ class _DocumentPreviewScreenState extends ConsumerState<DocumentPreviewScreen> {
           children: [
             Icon(Icons.error_outline, size: 48, color: Colors.white.withValues(alpha: 0.54)), // On forced-dark background
             const SizedBox(height: 16),
-            Text('Failed to load PDF',
+            Text('Failed to load document',
                 style: TextStyle(color: Colors.white.withValues(alpha: 0.70))), // On forced-dark background
             const SizedBox(height: 8),
-            Text(friendlyApiMessage(error, fallback: 'Failed to load PDF.'),
+            Text(friendlyApiMessage(error, fallback: 'Failed to load document.'),
                 style: TextStyle(color: Colors.white.withValues(alpha: 0.38), fontSize: 12)), // On forced-dark background
           ],
         ),

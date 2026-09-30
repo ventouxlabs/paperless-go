@@ -114,10 +114,13 @@ class PaperlessApi {
     String? path;
     await _dio.download(
       'api/documents/$id/download/',
+      // Must not throw: an exception here escapes before Dio has consumed or
+      // cancelled the response stream. `.first` rather than Headers.value(),
+      // which throws when a header is repeated.
       (Headers headers) => path = pathFor(
         downloadExtension(
-          contentDisposition: headers.value('content-disposition'),
-          contentType: headers.value(Headers.contentTypeHeader),
+          contentDisposition: headers['content-disposition']?.first,
+          contentType: headers[Headers.contentTypeHeader]?.first,
           originalFileName: originalFileName,
         ),
       ),

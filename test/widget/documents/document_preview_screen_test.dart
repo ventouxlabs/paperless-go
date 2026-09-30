@@ -59,7 +59,7 @@ void main() {
     });
 
     expect(find.text('No preview for .txt files'), findsOneWidget);
-    expect(find.text('Failed to load PDF'), findsNothing);
+    expect(find.text('Failed to load document'), findsNothing);
     expect(find.widgetWithText(FilledButton, 'Share'), findsOneWidget);
   });
 }

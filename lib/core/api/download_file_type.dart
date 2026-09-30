@@ -78,16 +78,13 @@ String mimeTypeForFileName(String fileName) =>
 String? _dispositionFileName(String? header) {
   if (header == null) return null;
   // RFC 6266 prefers the extended filename*= form when both are present.
+  // It is left percent-encoded: only the extension is used, which is plain
+  // ASCII, and decoding would throw on non-UTF-8 charsets (RFC 5987 allows
+  // e.g. iso-8859-1). An encoded char in the extension just fails _safe.
   final extended =
       RegExp(r"filename\*\s*=\s*[^']*'[^']*'([^;]+)", caseSensitive: false)
           .firstMatch(header);
-  if (extended != null) {
-    try {
-      return Uri.decodeComponent(extended.group(1)!.trim());
-    } on ArgumentError {
-      // Malformed percent-encoding: fall through to the plain form.
-    }
-  }
+  if (extended != null) return extended.group(1)!.trim();
   final plain = RegExp(r'filename\s*=\s*"([^"]*)"|filename\s*=\s*([^;]+)',
           caseSensitive: false)
       .firstMatch(header);
