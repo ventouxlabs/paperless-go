@@ -1,0 +1,39 @@
+name: Mirror main to GitLab
+
+# Manual-only companion to the mirror-tag-to-gitlab job in release.yml.
+# That job only runs when a v* tag is pushed, so a rotated GITLAB_MIRROR_TOKEN
+# otherwise goes untested until a release - and a bad token there silently
+# leaves F-Droid on the old version. Run this after rotating the token: it
+# fast-forwards GitLab's main (never a tag, never a force push), which proves
+# the token can push without publishing anything to F-Droid.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mirror-main:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          # A fast-forward push needs real history.
+          fetch-depth: 0
+
+      - name: Push main to the GitLab mirror
+        env:
+          GITLAB_MIRROR_TOKEN: ${{ secrets.GITLAB_MIRROR_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GITLAB_MIRROR_TOKEN:-}" ]; then
+            echo "::error::GITLAB_MIRROR_TOKEN is not set."
+            exit 1
+          fi
+          REMOTE="https://oauth2:${GITLAB_MIRROR_TOKEN}@gitlab.com/selector4560/paperless-go.git"
+          # git authenticates for write access even when main is already up
+          # to date, so an "Everything up-to-date" result still proves the
+          # token can push.
+          git push "$REMOTE" "HEAD:refs/heads/main"
+          echo "GitLab main is at $(git rev-parse --short HEAD); token can push."
