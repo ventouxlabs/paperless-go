@@ -33,6 +33,44 @@ String downloadExtension({
     _extensionOfName(originalFileName) ??
     'bin';
 
+/// Whether a downloaded file (named by [downloadExtension]) is a PDF.
+bool isPdfFile(String path) => path.toLowerCase().endsWith('.pdf');
+
+/// The extension (no dot) a downloaded file was saved under, or `''`.
+String fileExtensionOf(String path) {
+  final base = path.split(RegExp(r'[/\\]')).last;
+  final dot = base.lastIndexOf('.');
+  return dot <= 0 ? '' : base.substring(dot + 1).toLowerCase();
+}
+
+/// A PDF-only feature (annotate, compress) was asked to work on a document
+/// Paperless serves as something else — an original it never archived.
+class NotPdfDocumentException implements Exception {
+  const NotPdfDocumentException(this.extension, this.action);
+
+  /// Extension of the file the server actually sent, e.g. `txt`.
+  final String extension;
+
+  /// What could not be done, phrased to follow "can't be", e.g. `annotated`.
+  final String action;
+
+  /// User-facing message: plain language, no internals.
+  String get message => extension.isEmpty
+      ? "This document isn't a PDF, so it can't be $action."
+      : "This document is a .$extension file, not a PDF, so it can't be "
+          '$action.';
+
+  @override
+  String toString() => 'NotPdfDocumentException: $message';
+}
+
+/// Throws [NotPdfDocumentException] unless [path] is a PDF.
+void ensurePdfFile(String path, {required String action}) {
+  if (!isPdfFile(path)) {
+    throw NotPdfDocumentException(fileExtensionOf(path), action);
+  }
+}
+
 /// The MIME type to declare for a file saved or shared under [fileName].
 String mimeTypeForFileName(String fileName) =>
     lookupMimeType(fileName.toLowerCase()) ?? 'application/octet-stream';

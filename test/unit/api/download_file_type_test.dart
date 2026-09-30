@@ -86,6 +86,24 @@ void main() {
     });
   });
 
+  group('ensurePdfFile', () {
+    test('accepts a PDF download', () {
+      expect(() => ensurePdfFile('/tmp/1_bill.PDF', action: 'annotated'),
+          returnsNormally);
+    });
+
+    test('refuses anything else with a plain-language reason', () {
+      expect(
+        () => ensurePdfFile('/tmp/20_notes.txt', action: 'annotated'),
+        throwsA(isA<NotPdfDocumentException>().having(
+          (e) => e.message,
+          'message',
+          "This document is a .txt file, not a PDF, so it can't be annotated.",
+        )),
+      );
+    });
+  });
+
   group('mimeTypeForFileName', () {
     test('derives the type from the extension', () {
       expect(mimeTypeForFileName('1_note.txt'), 'text/plain');

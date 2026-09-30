@@ -100,15 +100,6 @@ class PaperlessApi {
 
   // Download
 
-  Future<File> downloadDocument(int id, String savePath) async {
-    await _dio.download(
-      'api/documents/$id/download/',
-      savePath,
-      options: Options(receiveTimeout: const Duration(minutes: 5)),
-    );
-    return File(savePath);
-  }
-
   /// Download document [id] to the path [pathFor] builds from the file
   /// extension the response calls for.
   ///

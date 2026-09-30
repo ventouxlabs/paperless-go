@@ -24,6 +24,7 @@ import '../../core/design_tokens.dart';
 import '../../shared/widgets/metadata_sheet.dart';
 import '../../shared/widgets/tag_chip.dart';
 import '../../shared/save_to_folder_action.dart';
+import '../../core/api/download_file_type.dart';
 import '../../core/services/export_destination_service.dart';
 import 'ai_edit_trail_notifier.dart';
 import 'document_detail_notifier.dart';
@@ -785,10 +786,20 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
       case 'annotate':
         try {
           final dir = await getTemporaryDirectory();
-          final path = '${dir.path}/annotate_$documentId.pdf';
-          await ref.read(paperlessApiProvider).downloadDocument(documentId, path);
+          final file = await ref.read(paperlessApiProvider).downloadDocumentTyped(
+                documentId,
+                (extension) => '${dir.path}/annotate_$documentId.$extension',
+              );
+          // An original Paperless never archived isn't a PDF (#43).
+          ensurePdfFile(file.path, action: 'annotated');
           if (context.mounted) {
-            context.push('/annotate', extra: {'pdfPath': path, 'title': title});
+            context.push('/annotate', extra: {'pdfPath': file.path, 'title': title});
+          }
+        } on NotPdfDocumentException catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(e.message)),
+            );
           }
         } catch (e) {
           if (context.mounted) {
@@ -820,6 +831,8 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
           final tempPath = await ref.read(
             documentDownloadProvider(documentId, title).future,
           );
+          // An original Paperless never archived isn't a PDF (#43).
+          ensurePdfFile(tempPath, action: 'compressed');
           final outputPath = await compressPdf(
             inputPath: tempPath,
             quality: selectedQuality,
@@ -854,6 +867,13 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
           } else {
             final outputPath = await compress();
             await Share.shareXFiles([XFile(outputPath)]);
+          }
+        } on NotPdfDocumentException catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(e.message)),
+            );
           }
         } on Exception catch (e) {
           if (context.mounted) {
