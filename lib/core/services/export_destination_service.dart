@@ -174,6 +174,23 @@ String exportFileName(
 }) =>
     '${sanitizeExportName(title, fallback: fallback)}$suffix';
 
+/// [exportFileName] for a downloaded document, keeping the extension it was
+/// downloaded under — a document without an archived PDF is saved as what
+/// it really is (`.txt`, `.jpg`, …), not labelled `.pdf` (#43).
+String exportFileNameFor(
+  String title, {
+  required String fallback,
+  required String downloadedPath,
+}) {
+  final base = downloadedPath.split(RegExp(r'[/\\]')).last;
+  final dot = base.lastIndexOf('.');
+  return exportFileName(
+    title,
+    fallback: fallback,
+    suffix: dot <= 0 ? '' : base.substring(dot),
+  );
+}
+
 String _truncateUtf8(String text, int maxBytes) {
   var bytes = 0;
   final out = StringBuffer();

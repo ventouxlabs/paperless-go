@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../core/api/download_file_type.dart';
 import '../core/services/export_destination_providers.dart';
 import '../core/services/export_destination_service.dart';
 
@@ -13,7 +14,9 @@ typedef ExportFile = ({String path, String name});
 typedef ProduceExportFiles = Future<List<ExportFile>> Function();
 
 /// Hands files to the system share sheet. Injectable so tests can observe it.
-typedef ShareFiles = Future<void> Function(List<ExportFile> files, String mime);
+/// Each file's MIME type comes from its own name: a batch can mix archived
+/// PDFs with originals that were never archived (#43).
+typedef ShareFiles = Future<void> Function(List<ExportFile> files);
 
 /// What happened to a "Save to folder" request.
 class SaveToFolderResult {
@@ -58,9 +61,14 @@ final class _Cancelled extends _Destination {
   const _Cancelled();
 }
 
-Future<void> _shareWithSystem(List<ExportFile> files, String mime) =>
-    Share.shareXFiles(
-      files.map((f) => XFile(f.path, mimeType: mime, name: f.name)).toList(),
+Future<void> _shareWithSystem(List<ExportFile> files) => Share.shareXFiles(
+      files
+          .map((f) => XFile(
+                f.path,
+                mimeType: mimeTypeForFileName(f.name),
+                name: f.name,
+              ))
+          .toList(),
     );
 
 /// Makes sure a usable download folder exists, prompting if it does not.
@@ -147,7 +155,6 @@ Future<SaveToFolderResult> saveToFolderWithFallback({
   required BuildContext context,
   required WidgetRef ref,
   required ProduceExportFiles produceFiles,
-  String mimeType = 'application/pdf',
   ShareFiles shareFiles = _shareWithSystem,
 }) async {
   // Everything that needs the widget is bound here, before the first await:
@@ -176,7 +183,7 @@ Future<SaveToFolderResult> saveToFolderWithFallback({
       return SaveToFolderResult.cancelled;
     case _ShareInstead():
       final files = await produceFiles();
-      if (files.isNotEmpty) await shareFiles(files, mimeType);
+      if (files.isNotEmpty) await shareFiles(files);
       return SaveToFolderResult(sharedInstead: true, saved: files.length);
     case _UseFolder(:final destination):
       final files = await produceFiles();
@@ -185,7 +192,6 @@ Future<SaveToFolderResult> saveToFolderWithFallback({
         service: service,
         destination: destination,
         files: files,
-        mimeType: mimeType,
         shareFiles: shareFiles,
         reprompt: () => prompt(force: true),
         toast: toast,
@@ -197,7 +203,6 @@ Future<SaveToFolderResult> _writeAll({
   required ExportDestinationService service,
   required ExportDestination destination,
   required List<ExportFile> files,
-  required String mimeType,
   required ShareFiles shareFiles,
   required Future<_Destination> Function() reprompt,
   required void Function(String) toast,
@@ -226,7 +231,7 @@ Future<SaveToFolderResult> _writeAll({
         await service.saveToDestination(
           localPath: file.path,
           fileName: file.name,
-          mimeType: mimeType,
+          mimeType: mimeTypeForFileName(file.name),
           known: target,
         ),
       );
@@ -251,7 +256,7 @@ Future<SaveToFolderResult> _writeAll({
             continue;
           case _ShareInstead():
             final rest = files.sublist(i);
-            await shareFiles(rest, mimeType);
+            await shareFiles(rest);
             summarize();
             return SaveToFolderResult(
               saved: saved.length + rest.length,

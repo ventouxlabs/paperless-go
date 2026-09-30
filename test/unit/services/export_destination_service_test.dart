@@ -235,6 +235,29 @@ void main() {
     });
   });
 
+  // #43: saved names follow the type that was actually downloaded.
+  group('exportFileNameFor', () {
+    test('keeps the extension the document was downloaded under', () {
+      expect(
+        exportFileNameFor('Notes: Q3',
+            fallback: 'document_20', downloadedPath: '/tmp/20_Notes Q3.txt'),
+        'Notes Q3.txt',
+      );
+      expect(
+        exportFileNameFor('Invoice',
+            fallback: 'document_1', downloadedPath: '/tmp/1_Invoice.pdf'),
+        'Invoice.pdf',
+      );
+    });
+
+    test('adds no extension when the download has none', () {
+      expect(
+        exportFileNameFor('x', fallback: 'd', downloadedPath: '/tmp/a.b/noext'),
+        'x',
+      );
+    });
+  });
+
   group('ExportDestination', () {
     test('displayName falls back when no name was stored', () {
       const d = ExportDestination.ready(uri: _pickedUri);

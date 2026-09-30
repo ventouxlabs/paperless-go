@@ -55,6 +55,7 @@ dependencies:
   drift: ^2.22.1
   sqlite3_flutter_libs: ^0.5.28
   path: ^1.9.0
+  mime: ^2.0.0
 
   # PDF Generation
   pdf: ^3.11.1

@@ -15,7 +15,7 @@ class FakeSaf extends Saf {
   List<Object?> pasteErrors = [];
   Object? releaseError;
   final released = <String>[];
-  final pasted = <({String src, String dir, String name})>[];
+  final pasted = <({String src, String dir, String name, String mime})>[];
   int pickCalls = 0;
 
   /// Runs before each paste with its 0-based call index, so a test can
@@ -59,7 +59,7 @@ class FakeSaf extends Saf {
     final error =
         pasteErrors.isNotEmpty ? pasteErrors.removeAt(0) : pasteError;
     if (error != null) throw error;
-    pasted.add((src: srcPath, dir: destDirUri, name: name));
+    pasted.add((src: srcPath, dir: destDirUri, name: name, mime: mime));
     return SafDocumentFile(
       uri: '$destDirUri/document/$name',
       name: name,

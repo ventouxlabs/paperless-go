@@ -699,7 +699,11 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
               return [
                 (
                   path: path,
-                  name: exportFileName(title, fallback: 'document_$documentId'),
+                  name: exportFileNameFor(
+                    title,
+                    fallback: 'document_$documentId',
+                    downloadedPath: path,
+                  ),
                 ),
               ];
             },

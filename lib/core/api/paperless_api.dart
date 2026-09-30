@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'download_file_type.dart';
 import '../models/api_response.dart';
 import '../models/correspondent.dart';
 import '../models/custom_field.dart';
@@ -106,6 +107,36 @@ class PaperlessApi {
       options: Options(receiveTimeout: const Duration(minutes: 5)),
     );
     return File(savePath);
+  }
+
+  /// Download document [id] to the path [pathFor] builds from the file
+  /// extension the response calls for.
+  ///
+  /// The endpoint serves the archived PDF only when there is one; otherwise
+  /// it serves the original (text, image, …) as-is, so the extension comes
+  /// from the response headers, then [originalFileName] (#43).
+  Future<File> downloadDocumentTyped(
+    int id,
+    String Function(String extension) pathFor, {
+    String? originalFileName,
+  }) async {
+    String? path;
+    await _dio.download(
+      'api/documents/$id/download/',
+      (Headers headers) => path = pathFor(
+        downloadExtension(
+          contentDisposition: headers.value('content-disposition'),
+          contentType: headers.value(Headers.contentTypeHeader),
+          originalFileName: originalFileName,
+        ),
+      ),
+      options: Options(receiveTimeout: const Duration(minutes: 5)),
+    );
+    final written = path;
+    if (written == null) {
+      throw StateError('Download of document $id finished without a path');
+    }
+    return File(written);
   }
 
   /// Build the preview URL for a document PDF.

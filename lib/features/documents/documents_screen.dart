@@ -83,12 +83,17 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
           // The picker can outlive this screen; a disposed ref throws an
           // Error, not an Exception. The folder is remembered either way.
           if (!context.mounted) return const <ExportFile>[];
+          final path = await ref.read(
+            documentDownloadProvider(docId, title).future,
+          );
           return [
             (
-              path: await ref.read(
-                documentDownloadProvider(docId, title).future,
+              path: path,
+              name: exportFileNameFor(
+                title,
+                fallback: 'document_$docId',
+                downloadedPath: path,
               ),
-              name: exportFileName(title, fallback: 'document_$docId'),
             ),
           ];
         },
@@ -518,11 +523,16 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
       if (!context.mounted) return files;
       for (final doc in selectedDocs) {
         try {
+          final path = await ref.read(
+            documentDownloadProvider(doc.id, doc.title).future,
+          );
           files.add((
-            path: await ref.read(
-              documentDownloadProvider(doc.id, doc.title).future,
+            path: path,
+            name: exportFileNameFor(
+              doc.title,
+              fallback: 'document_${doc.id}',
+              downloadedPath: path,
             ),
-            name: exportFileName(doc.title, fallback: 'document_${doc.id}'),
           ));
         } on Exception {
           downloadFailures.add(doc.title);

@@ -109,7 +109,7 @@ void main() {
                 context: context,
                 ref: ref,
                 produceFiles: produce,
-                shareFiles: share ?? (_, __) async {},
+                shareFiles: share ?? (_) async {},
               );
               return result!;
             },
@@ -136,6 +136,25 @@ void main() {
       expect(result?.saved, 2);
       expect(result?.failed, 0);
       expect(find.text('Saved 2 files to Download'), findsOneWidget);
+    });
+
+    // #43: a batch can mix archived PDFs with originals Paperless never
+    // archived (text, images); each must be declared as its own type.
+    testWidgets('declares each file\'s own MIME type, not PDF for all',
+        (tester) async {
+      configureReadyFolder();
+      final pdf = File('${tempDir.path}/1_invoice.pdf')..writeAsStringSync('p');
+      final txt = File('${tempDir.path}/2_notes.txt')..writeAsStringSync('t');
+
+      await pumpAndTap(tester, produce: () async => [
+            (path: pdf.path, name: 'invoice.pdf'),
+            (path: txt.path, name: 'notes.txt'),
+          ]);
+
+      expect(
+        saf.pasted.map((p) => (p.name, p.mime)),
+        [('invoice.pdf', 'application/pdf'), ('notes.txt', 'text/plain')],
+      );
     });
 
     testWidgets('cancelling the folder prompt produces nothing', (tester) async {
@@ -191,7 +210,7 @@ void main() {
                   context: context,
                   ref: ref,
                   produceFiles: () async => makeFiles(2),
-                  shareFiles: (files, _) async => shared.addAll(files),
+                  shareFiles: (files) async => shared.addAll(files),
                 );
                 return result!;
               },

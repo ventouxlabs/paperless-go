@@ -80,7 +80,10 @@ Future<String> documentDownload(Ref ref, int documentId, String title) async {
   final api = ref.watch(paperlessApiProvider);
   final dir = await getTemporaryDirectory();
   final safeName = sanitizeExportName(title, fallback: 'document_$documentId');
-  final path = '${dir.path}/${documentId}_$safeName.pdf';
-  final file = await api.downloadDocument(documentId, path);
+  // The extension follows what the server sent, not an assumed PDF (#43).
+  final file = await api.downloadDocumentTyped(
+    documentId,
+    (extension) => '${dir.path}/${documentId}_$safeName.$extension',
+  );
   return file.path;
 }
