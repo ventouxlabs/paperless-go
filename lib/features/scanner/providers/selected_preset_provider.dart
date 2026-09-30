@@ -37,9 +37,13 @@ class SelectedPresetNotifier extends Notifier<ProcessingPreset> {
   }
 
   /// Makes [preset] the default for this and future scanner sessions.
+  ///
+  /// Saves first, like the other settings notifiers: if the write fails the
+  /// chip keeps showing the previous preset rather than a choice that would
+  /// silently revert on restart. The failure is rethrown for the caller.
   Future<void> select(ProcessingPreset preset) async {
     _userChanged = true;
-    state = preset;
     await ref.read(secureStorageProvider).saveScannerPreset(preset.name);
+    state = preset;
   }
 }

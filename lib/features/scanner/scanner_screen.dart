@@ -79,7 +79,16 @@ class ScannerScreen extends ConsumerWidget {
                       tooltip: preset.description,
                       onSelected: (_) => ref
                           .read(selectedPresetProvider.notifier)
-                          .select(preset),
+                          .select(preset)
+                          .catchError((Object _) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Couldn't save that enhancement "
+                                'preset. Please try again.'),
+                          ),
+                        );
+                      }),
                     );
                   },
                 ),
