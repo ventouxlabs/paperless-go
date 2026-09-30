@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-09-30
+
+### Added
+- **The scanner remembers your enhancement preset.** It reset to Auto every time, so if you prefer your pages unprocessed you had to pick None again before each batch scan. The preset you choose on the scanner is now kept, None included, until you change it. Adjusting one batch still only affects that batch (#42)
+
+### Fixed
+- **Moving a document to the trash works again.** Delete failed with "The server rejected the request", because the app asked Paperless-ngx for an action it has never supported; newer 3.x servers reject it outright (#39)
+- **The Trash screen works.** It could list your live documents instead of the trashed ones, Restore was rejected, and Delete permanently never removed anything. All three now use Paperless-ngx's trash, restored documents show up in your library straight away, and a failure says why
+- **Bulk "Redo OCR" works again.** It was rejected by the server on current Paperless-ngx 2.x and 3.x (#41)
+- **Documents that aren't PDFs are saved and shared as what they are.** Paperless-ngx keeps some documents only as the original you uploaded (plain text, CSV, or anything when archiving is turned off). The app still named them `.pdf` and handed them to other apps as PDFs. They are now saved and shared with their real type, the viewer offers to share a file it can't preview instead of failing, and Annotate and Compress explain that they only work on PDFs (#43)
+
 ## [1.4.0] - 2026-09-24
 
 ### Added

@@ -1,0 +1,4 @@
+* Moving a document to the trash works again on Paperless-ngx 3.x, and the Trash screen now lists, restores and permanently deletes the right documents
+* Bulk "Redo OCR" works again
+* Text files, images and other non-PDF documents are saved and shared as what they are, not as broken PDFs
+* The scanner remembers your enhancement preset, including None
