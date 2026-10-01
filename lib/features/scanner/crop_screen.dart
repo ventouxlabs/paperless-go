@@ -73,6 +73,11 @@ class _CropScreenState extends State<CropScreen> {
       appBar: AppBar(
         backgroundColor: Colors.black, // Intentional: dark background for image editing
         foregroundColor: Colors.white, // On forced-dark background
+        // The theme's title style carries the ink colour and beats foregroundColor.
+        titleTextStyle: Theme.of(context)
+            .appBarTheme
+            .titleTextStyle
+            ?.copyWith(color: Colors.white),
         title: const Text('Crop'),
         actions: [
           TextButton(

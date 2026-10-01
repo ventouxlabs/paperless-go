@@ -85,6 +85,11 @@ class _DocumentPreviewScreenState extends ConsumerState<DocumentPreviewScreen> {
             },
             backgroundColor: Colors.black, // Intentional: dark background for media viewing
             foregroundColor: Colors.white, // On forced-dark background
+            // The theme's title style carries the ink colour and beats foregroundColor.
+            titleTextStyle: Theme.of(context)
+                .appBarTheme
+                .titleTextStyle
+                ?.copyWith(color: Colors.white),
           ),
           backgroundColor: Colors.black, // Intentional: dark background for media viewing
           body: switch (preview) {
