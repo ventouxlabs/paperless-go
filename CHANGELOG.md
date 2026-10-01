@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-10-01
+
+### Fixed
+- **The document viewer's title is readable again.** The page counter at the top of the viewer ("Page 1 of 3") was drawn near-black on the viewer's black bar, so you could barely see it. It is white now, like the back button. The scanner's Crop screen had the same problem and is fixed too
+
 ## [1.5.0] - 2026-09-30
 
 ### Added

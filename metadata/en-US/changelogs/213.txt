@@ -1,0 +1,1 @@
+* The page counter at the top of the document viewer is readable again, white on black instead of near-black on black

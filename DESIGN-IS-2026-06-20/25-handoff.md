@@ -116,9 +116,11 @@ isn't, and they were told so on the issue.
 
 ## Open
 
-- **Document viewer title:** the top-bar title ("Page 1 of 1" / "Preview") is
-  dark grey on black, nearly unreadable. This predates this session. It's a
-  small `AppBar` title style fix in `document_preview_screen.dart`.
+- ~~**Document viewer title:** dark grey on black.~~ **Fixed in v1.5.1**
+  (`f76819e`). The theme's AppBar `titleTextStyle` carries the ink colour and
+  beats an AppBar's `foregroundColor`, so any forced-dark AppBar must also set
+  `titleTextStyle`. The Crop screen had the same bug and was fixed too.
+  Verified on the Pixel.
 - **Leftover cache files:** temp downloads under a previous extension linger
   if a document is later archived. This is cache-only, and was left as is.
 - **`deleted_at` for the Trash date:** needs a `Document` model field, and so
