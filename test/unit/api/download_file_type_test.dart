@@ -7,6 +7,8 @@
 //
 // Run: flutter test test/unit/api/download_file_type_test.dart
 
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:paperless_go/core/api/download_file_type.dart';
 
@@ -132,6 +134,76 @@ void main() {
     test('unknown or missing extension is a generic binary', () {
       expect(mimeTypeForFileName('file.bin'), 'application/octet-stream');
       expect(mimeTypeForFileName('noext'), 'application/octet-stream');
+    });
+  });
+
+  // A document first downloaded as its .txt original and later archived is
+  // then downloaded as .pdf. The .txt copy must not linger in the cache.
+  group('deleteOtherTypeVariants', () {
+    late Directory dir;
+
+    setUp(() => dir = Directory.systemTemp.createTempSync('variants_test_'));
+    tearDown(() => dir.deleteSync(recursive: true));
+
+    File touch(String name) =>
+        File('${dir.path}/$name')..writeAsStringSync(name);
+
+    Set<String> remaining() =>
+        dir.listSync().map((e) => e.path.split('/').last).toSet();
+
+    test('deletes the same name saved under another extension', () async {
+      touch('preview_5.txt');
+      touch('preview_5.bin');
+      final kept = touch('preview_5.pdf');
+
+      await deleteOtherTypeVariants(kept.path);
+
+      expect(remaining(), {'preview_5.pdf'});
+    });
+
+    test('leaves other documents and other prefixes alone', () async {
+      touch('preview_12.txt');
+      touch('preview_5x.txt');
+      touch('annotate_5.txt');
+      touch('5_preview_5.txt');
+      final kept = touch('preview_5.pdf');
+
+      await deleteOtherTypeVariants(kept.path);
+
+      expect(remaining(), {
+        'preview_5.pdf',
+        'preview_12.txt',
+        'preview_5x.txt',
+        'annotate_5.txt',
+        '5_preview_5.txt',
+      });
+    });
+
+    test('only treats a short alphanumeric suffix as an extension', () async {
+      // A title containing a dot must not make another title look like a
+      // variant: "5_invoice.v2.pdf" is not "5_invoice" + extension.
+      touch('5_invoice.v2.pdf');
+      touch('5_invoice.toolongextension');
+      touch('5_invoice.TXT');
+      final kept = touch('5_invoice.pdf');
+
+      await deleteOtherTypeVariants(kept.path);
+
+      expect(remaining(), {
+        '5_invoice.pdf',
+        '5_invoice.v2.pdf',
+        '5_invoice.toolongextension',
+        '5_invoice.TXT',
+      });
+    });
+
+    test('does nothing for a file without an extension', () async {
+      touch('preview_5.txt');
+      final kept = touch('preview_5');
+
+      await deleteOtherTypeVariants(kept.path);
+
+      expect(remaining(), {'preview_5', 'preview_5.txt'});
     });
   });
 }

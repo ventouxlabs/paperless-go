@@ -130,6 +130,9 @@ class PaperlessApi {
     if (written == null) {
       throw StateError('Download of document $id finished without a path');
     }
+    // The type can change (an original archived later), so a copy under the
+    // old extension would otherwise linger in the cache.
+    await deleteOtherTypeVariants(written);
     return File(written);
   }
 

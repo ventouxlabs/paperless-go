@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:mime/mime.dart';
 
 /// What a downloaded document really is, decided from the download response.
@@ -68,6 +71,38 @@ class NotPdfDocumentException implements Exception {
 void ensurePdfFile(String path, {required String action}) {
   if (!isPdfFile(path)) {
     throw NotPdfDocumentException(fileExtensionOf(path), action);
+  }
+}
+
+/// Delete copies of [path] saved under another extension, e.g. the cached
+/// `preview_5.txt` once the document is archived and `preview_5.pdf` arrives.
+///
+/// Only a sibling named exactly `<same stem>.<ext>` is removed, where `<ext>`
+/// is a name [downloadExtension] could have produced (so lowercase only, by
+/// design: nothing else in the temp dir is ours to remove). A file that can't be
+/// deleted is logged and skipped: it is only a stale cache entry, and the
+/// download it trails has already succeeded.
+Future<void> deleteOtherTypeVariants(String path) async {
+  final file = File(path);
+  final name = file.uri.pathSegments.last;
+  final dot = name.lastIndexOf('.');
+  if (dot <= 0) return;
+  final stem = name.substring(0, dot + 1);
+  try {
+    await for (final entry in file.parent.list(followLinks: false)) {
+      if (entry is! File) continue;
+      final other = entry.uri.pathSegments.last;
+      if (other == name || !other.startsWith(stem)) continue;
+      if (!_safeExtension.hasMatch(other.substring(stem.length))) continue;
+      try {
+        await entry.delete();
+      } on FileSystemException catch (e) {
+        debugPrint('Could not delete stale download $other: ${e.message}');
+      }
+    }
+  } on FileSystemException catch (e) {
+    debugPrint('Could not list ${file.parent.path} for stale downloads: '
+        '${e.message}');
   }
 }
 
