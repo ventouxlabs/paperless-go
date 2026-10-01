@@ -80,6 +80,24 @@ void main() {
       expect(page.count, equals(2));
       expect(page.results, hasLength(2));
     });
+
+    test('parses deleted_at in the server wire format (microseconds + offset)', () async {
+      final fixture = _loadFixture('documents_page1.json') as Map<String, dynamic>;
+      final results = fixture['results'] as List<dynamic>;
+      final trashed = {
+        ...fixture,
+        'results': [
+          {...results.first as Map<String, dynamic>, 'deleted_at': '2026-09-30T21:15:04.123456+02:00'},
+          ...results.skip(1),
+        ],
+      };
+      final api = _makeApi(_RecordingAdapter(responseBody: jsonEncode(trashed)));
+
+      final page = await api.getTrashedDocuments();
+
+      expect(page.results.first.deletedAt, equals(DateTime.utc(2026, 9, 30, 19, 15, 4, 123, 456)));
+      expect(page.results.last.deletedAt, isNull);
+    });
   });
 
   group('PaperlessApi.restoreFromTrash', () {

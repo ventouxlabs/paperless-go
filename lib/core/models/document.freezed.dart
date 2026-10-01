@@ -34,6 +34,8 @@ mixin _$Document {
   String? get createdDate => throw _privateConstructorUsedError;
   DateTime? get modified => throw _privateConstructorUsedError;
   DateTime? get added => throw _privateConstructorUsedError;
+  @JsonKey(name: 'deleted_at')
+  DateTime? get deletedAt => throw _privateConstructorUsedError;
   @JsonKey(name: 'archive_serial_number')
   int? get archiveSerialNumber => throw _privateConstructorUsedError;
   @JsonKey(name: 'original_file_name')
@@ -72,6 +74,7 @@ abstract class $DocumentCopyWith<$Res> {
     @JsonKey(name: 'created_date') String? createdDate,
     DateTime? modified,
     DateTime? added,
+    @JsonKey(name: 'deleted_at') DateTime? deletedAt,
     @JsonKey(name: 'archive_serial_number') int? archiveSerialNumber,
     @JsonKey(name: 'original_file_name') String? originalFileName,
     @JsonKey(name: 'archived_file_name') String? archivedFileName,
@@ -106,6 +109,7 @@ class _$DocumentCopyWithImpl<$Res, $Val extends Document>
     Object? createdDate = freezed,
     Object? modified = freezed,
     Object? added = freezed,
+    Object? deletedAt = freezed,
     Object? archiveSerialNumber = freezed,
     Object? originalFileName = freezed,
     Object? archivedFileName = freezed,
@@ -154,6 +158,10 @@ class _$DocumentCopyWithImpl<$Res, $Val extends Document>
             added: freezed == added
                 ? _value.added
                 : added // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+            deletedAt: freezed == deletedAt
+                ? _value.deletedAt
+                : deletedAt // ignore: cast_nullable_to_non_nullable
                       as DateTime?,
             archiveSerialNumber: freezed == archiveSerialNumber
                 ? _value.archiveSerialNumber
@@ -205,6 +213,7 @@ abstract class _$$DocumentImplCopyWith<$Res>
     @JsonKey(name: 'created_date') String? createdDate,
     DateTime? modified,
     DateTime? added,
+    @JsonKey(name: 'deleted_at') DateTime? deletedAt,
     @JsonKey(name: 'archive_serial_number') int? archiveSerialNumber,
     @JsonKey(name: 'original_file_name') String? originalFileName,
     @JsonKey(name: 'archived_file_name') String? archivedFileName,
@@ -238,6 +247,7 @@ class __$$DocumentImplCopyWithImpl<$Res>
     Object? createdDate = freezed,
     Object? modified = freezed,
     Object? added = freezed,
+    Object? deletedAt = freezed,
     Object? archiveSerialNumber = freezed,
     Object? originalFileName = freezed,
     Object? archivedFileName = freezed,
@@ -287,6 +297,10 @@ class __$$DocumentImplCopyWithImpl<$Res>
             ? _value.added
             : added // ignore: cast_nullable_to_non_nullable
                   as DateTime?,
+        deletedAt: freezed == deletedAt
+            ? _value.deletedAt
+            : deletedAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
         archiveSerialNumber: freezed == archiveSerialNumber
             ? _value.archiveSerialNumber
             : archiveSerialNumber // ignore: cast_nullable_to_non_nullable
@@ -330,6 +344,7 @@ class _$DocumentImpl implements _Document {
     @JsonKey(name: 'created_date') this.createdDate,
     this.modified,
     this.added,
+    @JsonKey(name: 'deleted_at') this.deletedAt,
     @JsonKey(name: 'archive_serial_number') this.archiveSerialNumber,
     @JsonKey(name: 'original_file_name') this.originalFileName,
     @JsonKey(name: 'archived_file_name') this.archivedFileName,
@@ -375,6 +390,9 @@ class _$DocumentImpl implements _Document {
   @override
   final DateTime? added;
   @override
+  @JsonKey(name: 'deleted_at')
+  final DateTime? deletedAt;
+  @override
   @JsonKey(name: 'archive_serial_number')
   final int? archiveSerialNumber;
   @override
@@ -405,7 +423,7 @@ class _$DocumentImpl implements _Document {
 
   @override
   String toString() {
-    return 'Document(id: $id, title: $title, correspondent: $correspondent, documentType: $documentType, storagePath: $storagePath, tags: $tags, created: $created, createdDate: $createdDate, modified: $modified, added: $added, archiveSerialNumber: $archiveSerialNumber, originalFileName: $originalFileName, archivedFileName: $archivedFileName, content: $content, customFields: $customFields, notes: $notes)';
+    return 'Document(id: $id, title: $title, correspondent: $correspondent, documentType: $documentType, storagePath: $storagePath, tags: $tags, created: $created, createdDate: $createdDate, modified: $modified, added: $added, deletedAt: $deletedAt, archiveSerialNumber: $archiveSerialNumber, originalFileName: $originalFileName, archivedFileName: $archivedFileName, content: $content, customFields: $customFields, notes: $notes)';
   }
 
   @override
@@ -428,6 +446,8 @@ class _$DocumentImpl implements _Document {
             (identical(other.modified, modified) ||
                 other.modified == modified) &&
             (identical(other.added, added) || other.added == added) &&
+            (identical(other.deletedAt, deletedAt) ||
+                other.deletedAt == deletedAt) &&
             (identical(other.archiveSerialNumber, archiveSerialNumber) ||
                 other.archiveSerialNumber == archiveSerialNumber) &&
             (identical(other.originalFileName, originalFileName) ||
@@ -456,6 +476,7 @@ class _$DocumentImpl implements _Document {
     createdDate,
     modified,
     added,
+    deletedAt,
     archiveSerialNumber,
     originalFileName,
     archivedFileName,
@@ -490,6 +511,7 @@ abstract class _Document implements Document {
     @JsonKey(name: 'created_date') final String? createdDate,
     final DateTime? modified,
     final DateTime? added,
+    @JsonKey(name: 'deleted_at') final DateTime? deletedAt,
     @JsonKey(name: 'archive_serial_number') final int? archiveSerialNumber,
     @JsonKey(name: 'original_file_name') final String? originalFileName,
     @JsonKey(name: 'archived_file_name') final String? archivedFileName,
@@ -525,6 +547,9 @@ abstract class _Document implements Document {
   DateTime? get modified;
   @override
   DateTime? get added;
+  @override
+  @JsonKey(name: 'deleted_at')
+  DateTime? get deletedAt;
   @override
   @JsonKey(name: 'archive_serial_number')
   int? get archiveSerialNumber;

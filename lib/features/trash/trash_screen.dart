@@ -5,14 +5,16 @@ import '../../core/models/document.dart';
 import 'trash_notifier.dart';
 import '../../shared/widgets/paginated_list_view.dart';
 
-/// Subtitle for a trashed document. `modified` is set when the document is
-/// moved to the trash (and trashed documents can't be edited); without it,
-/// show no date rather than passing the created date off as the deletion.
+/// Subtitle for a trashed document. Uses the server's `deleted_at`, falling
+/// back to `modified` (also set when the document is moved to the trash, and
+/// trashed documents can't be edited). Without either, show no date rather
+/// than passing the created date off as the deletion. Both are parsed as UTC
+/// instants, so convert to local time to show the user's calendar day.
 String trashDeletedLabel(Document doc) {
-  final modified = doc.modified;
-  return modified == null
+  final deleted = (doc.deletedAt ?? doc.modified)?.toLocal();
+  return deleted == null
       ? 'Deleted'
-      : 'Deleted ${DateFormat.yMMMd().format(modified)}';
+      : 'Deleted ${DateFormat.yMMMd().format(deleted)}';
 }
 
 class TrashScreen extends ConsumerStatefulWidget {

@@ -18,6 +18,7 @@ class Document with _$Document {
     @JsonKey(name: 'created_date') String? createdDate,
     DateTime? modified,
     DateTime? added,
+    @JsonKey(name: 'deleted_at') DateTime? deletedAt,
     @JsonKey(name: 'archive_serial_number') int? archiveSerialNumber,
     @JsonKey(name: 'original_file_name') String? originalFileName,
     @JsonKey(name: 'archived_file_name') String? archivedFileName,

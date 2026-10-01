@@ -27,6 +27,9 @@ _$DocumentImpl _$$DocumentImplFromJson(
       ? null
       : DateTime.parse(json['modified'] as String),
   added: json['added'] == null ? null : DateTime.parse(json['added'] as String),
+  deletedAt: json['deleted_at'] == null
+      ? null
+      : DateTime.parse(json['deleted_at'] as String),
   archiveSerialNumber: (json['archive_serial_number'] as num?)?.toInt(),
   originalFileName: json['original_file_name'] as String?,
   archivedFileName: json['archived_file_name'] as String?,
@@ -55,6 +58,7 @@ Map<String, dynamic> _$$DocumentImplToJson(_$DocumentImpl instance) =>
       'created_date': instance.createdDate,
       'modified': instance.modified?.toIso8601String(),
       'added': instance.added?.toIso8601String(),
+      'deleted_at': instance.deletedAt?.toIso8601String(),
       'archive_serial_number': instance.archiveSerialNumber,
       'original_file_name': instance.originalFileName,
       'archived_file_name': instance.archivedFileName,
