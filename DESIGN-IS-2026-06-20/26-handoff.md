@@ -59,8 +59,13 @@ phone.
 
 ## Open
 
-- **Leftover cache files:** temp downloads under a previous extension linger
-  if a document is later archived. This is cache-only, and was left as is.
+- ~~**Leftover cache files**~~ **Fixed, not yet released.** After a successful
+  download, `downloadDocumentTyped` now deletes copies of the same name under
+  another extension (`deleteOtherTypeVariants`). The independent review found
+  one accepted risk: two downloads of the same document in flight at once,
+  across a server-side type change, could delete each other's file. That
+  needs two requests milliseconds apart with an archive in between, so it was
+  judged not worth a lock.
 - **`deleted_at` for the Trash date:** needs a `Document` model field, and so
   `build_runner`, which is broken on this machine. For now it uses `modified`.
 - **Personal-looking doc on the reviewer demo:** `bryn car tax 2026` (#5) is
