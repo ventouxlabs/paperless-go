@@ -10,8 +10,8 @@ signature gate passed and the downloaded APK carries the release key
 (`a25ed068…`, versionCode 22). `mirror-tag-to-gitlab` pushed `main` and the
 tag, so F-Droid can see it.
 
-**Push state:** everything up to `f5d7cf5` is on GitHub **and** GitLab. This
-handoff commit is **local only**.
+**Push state:** everything through this handoff (`87dab0d`) is on GitHub
+**and** GitLab; this one-line follow-up is **local only**.
 
 ---
 
@@ -52,9 +52,9 @@ handoff commit is **local only**.
   cleanup on real storage); no crash.
 - **The new Trash date was not seen on device:** the user's trash is empty.
   Covered by the server contract check and unit tests only.
-- The phone runs the **local pre-release build** (identical code, but labelled
-  `1.5.1`/versionCode 21). Installing the published v1.5.2 APK with
-  `adb install -r` would make the label match; not done without asking.
+- Then the **published v1.5.2 APK** was installed over it (`adb install -r`,
+  user-approved): still logged in, versionName 1.5.2 / versionCode 22, no
+  crash. That is the exact upgrade users get from the CI-built v1.5.1 path.
 
 ## Environment notes (this machine)
 
@@ -72,11 +72,10 @@ handoff commit is **local only**.
 
 ## Next
 
-1. **Push this handoff** when the user says so.
+1. Push the handoff follow-up commit when the user says so.
 2. **`ubuntu-latest` → Ubuntu 26 from 2026-10-19.** Watch the first CI and
    release runs after that date, or pin `ubuntu-24.04` beforehand.
 3. **setup-java v6** once a release with #1279 ships (optional).
-4. Optionally update the Pixel to the published v1.5.2 APK.
 
 ## Open (carried over)
 
