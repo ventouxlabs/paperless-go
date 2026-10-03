@@ -314,6 +314,25 @@ class PaperlessApi {
     return SavedView.fromJson(response.data as Map<String, dynamic>);
   }
 
+  // UI settings
+
+  /// The raw `GET api/ui_settings/` payload: `user`, `settings` (including
+  /// `ai_enabled` and `version` on 3.x) and the user's `permissions`.
+  Future<Map<String, dynamic>> getUiSettings() async {
+    final response = await _dio.get('api/ui_settings/');
+    final data = response.data;
+    // A captive portal or an access proxy can answer 200 with an HTML page.
+    if (data is! Map<String, dynamic>) {
+      throw DioException(
+        requestOptions: response.requestOptions,
+        response: response,
+        type: DioExceptionType.badResponse,
+        message: 'ui_settings: expected a JSON object',
+      );
+    }
+    return data;
+  }
+
   // Statistics
 
   Future<Map<String, dynamic>> getStatistics() async {
