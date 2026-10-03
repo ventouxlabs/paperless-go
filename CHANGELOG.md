@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-10-03
+
+### Fixed
+- **The Trash shows when a document was actually deleted.** Each row showed the document's last-modified time, read in UTC, so it could be off by a day. It now shows the deletion date Paperless-ngx records, in your own time zone
+- **Old copies of a re-typed document are cleaned up.** When a document's file type changed on the server, for example a text file that Paperless later archived as a PDF, the copy the app had saved under the old type stayed on your phone. It is now removed once the new one downloads
+
 ## [1.5.1] - 2026-10-01
 
 ### Fixed

@@ -1,0 +1,2 @@
+* The Trash shows the date a document was actually deleted, in your time zone
+* Old copies of a document are removed when its file type changes on the server and it is downloaded again
