@@ -12,9 +12,9 @@ jobs:
   build-apk:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -108,7 +108,7 @@ jobs:
           echo "Signature verified."
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             build/app/outputs/flutter-apk/app-release.apk
@@ -129,7 +129,7 @@ jobs:
     needs: build-apk
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # The mirror push needs real history; the default depth-1 checkout
           # cannot fast-forward GitLab's main.
