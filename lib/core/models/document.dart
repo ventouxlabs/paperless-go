@@ -25,6 +25,10 @@ class Document with _$Document {
     String? content,
     @JsonKey(name: 'custom_fields') @Default([]) List<CustomFieldInstance> customFields,
     @Default([]) List<Note> notes,
+    // Whether the signed-in user may change THIS document (object-level
+    // permission). Null when absent: `?full_perms=true` responses and older
+    // servers omit it, and callers must treat null as "unknown", not "yes".
+    @JsonKey(name: 'user_can_change') bool? userCanChange,
   }) = _Document;
 
   factory Document.fromJson(Map<String, dynamic> json) =>

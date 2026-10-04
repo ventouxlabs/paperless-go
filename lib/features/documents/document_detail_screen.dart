@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/services.dart';
@@ -27,8 +26,11 @@ import '../../shared/save_to_folder_action.dart';
 import '../../core/api/download_file_type.dart';
 import '../../core/services/export_destination_service.dart';
 import 'ai_edit_trail_notifier.dart';
+import 'ai_suggestions/ai_suggestions_action.dart';
+import 'ai_suggestions/ai_suggestions_flow.dart';
 import 'document_detail_notifier.dart';
 import 'documents_notifier.dart';
+import 'metadata_patch.dart';
 import '../inbox/inbox_notifier.dart';
 import '../../core/api/api_error_mapper.dart';
 
@@ -50,6 +52,7 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
   void initState() {
     super.initState();
     _loadLockState();
+    refreshServerCapabilitiesOnceOnError(ref);
   }
 
   Future<void> _loadLockState() async {
@@ -174,7 +177,7 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
               IconButton(
                 icon: const Icon(Icons.more_vert),
                 tooltip: 'More actions',
-                onPressed: () => _showActionsSheet(context, ref, doc.title, hasChat),
+                onPressed: () => _showActionsSheet(context, ref, doc, hasChat),
               ),
             ],
           ),
@@ -461,23 +464,14 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
   }
 
   /// Persist only the fields the sheet actually changed, in one PATCH.
-  Future<void> _saveMetadata(Document doc, MetadataSheetResult result) async {
-    final patch = <String, dynamic>{};
-    if (result.correspondentId != doc.correspondent) {
-      patch['correspondent'] = result.correspondentId;
-    }
-    if (result.documentTypeId != doc.documentType) {
-      patch['document_type'] = result.documentTypeId;
-    }
-    // A cleared date means "leave as is" here — Paperless requires created.
-    if (result.created != null) {
-      final newDate = result.created!.toIso8601String().split('T').first;
-      final oldDate = doc.created?.toIso8601String().split('T').first;
-      if (newDate != oldDate) patch['created'] = newDate;
-    }
-    if (!setEquals(result.tagIds.toSet(), doc.tags.toSet())) {
-      patch['tags'] = result.tagIds;
-    }
+  /// [doc] is the document the sheet was opened with (see
+  /// [buildMetadataPatch]).
+  Future<void> _saveMetadata(
+    Document doc,
+    MetadataSheetResult result, {
+    String? title,
+  }) async {
+    final patch = buildMetadataPatch(doc, result, title: title);
     if (patch.isEmpty) return;
     try {
       await ref
@@ -500,9 +494,10 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
   Future<void> _showActionsSheet(
     BuildContext context,
     WidgetRef ref,
-    String title,
+    Document doc,
     bool hasChat,
   ) async {
+    final title = doc.title;
     Widget sectionLabel(BuildContext ctx, String label) => Padding(
           padding: const EdgeInsets.fromLTRB(
               Spacing.lg, Spacing.md, Spacing.lg, Spacing.xs),
@@ -535,6 +530,10 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
             ),
             const Divider(height: 1),
             sectionLabel(ctx, 'Edit'),
+            SuggestWithAiTile(
+              document: doc,
+              onTap: () => Navigator.pop(ctx, 'ai_suggest'),
+            ),
             ListTile(
               leading: const Icon(Icons.rotate_right_outlined),
               title: const Text('Rotate'),
@@ -595,6 +594,14 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
       case 'chat':
         context.push(
           '/documents/$documentId/chat?title=${Uri.encodeComponent(title)}',
+        );
+      case 'ai_suggest':
+        await showAiSuggestions(
+          context,
+          doc,
+          // base: the document as re-read after the AI answered.
+          onSave: (base, result, newTitle) =>
+              _saveMetadata(base, result, title: newTitle),
         );
       default:
         await _handleAction(context, ref, action, title);

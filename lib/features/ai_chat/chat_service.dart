@@ -290,9 +290,10 @@ class ChatService {
       var buffer = '';
       var firstChunk = true;
 
-      await for (final chunk in stream) {
-        final decoded = utf8.decode(chunk);
-
+      // Decode as one stream: a chunk can end mid-character, which a
+      // per-chunk utf8.decode rejects. bind(), not transform(): the body is
+      // a Stream<Uint8List> at runtime, which transform(utf8.decoder) rejects.
+      await for (final decoded in utf8.decoder.bind(stream)) {
         // Detect HTML on first chunk
         if (firstChunk) {
           firstChunk = false;

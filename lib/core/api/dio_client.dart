@@ -2,6 +2,14 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../constants.dart';
 
+/// Request `extra` key that opts a single request out of [_RetryInterceptor].
+///
+/// Set `Options(extra: {kNoRetryExtraKey: true})` on requests that must reach
+/// the server at most once even when they time out — e.g. the native AI
+/// suggestions call, where every attempt is a paid model call and the server
+/// has no rate limit. Any other value (or no key) keeps the default retries.
+const kNoRetryExtraKey = 'noRetry';
+
 class DioClient {
   static Dio create(String baseUrl, String token) {
     final normalizedUrl = baseUrl.endsWith('/') ? baseUrl : '$baseUrl/';
@@ -180,6 +188,7 @@ class _RetryInterceptor extends Interceptor {
   }
 
   bool _shouldRetry(DioException err) {
+    if (err.requestOptions.extra[kNoRetryExtraKey] == true) return false;
     // Only retry idempotent methods (GET, HEAD, OPTIONS) to avoid
     // duplicate side effects on POST/PATCH/DELETE
     final method = err.requestOptions.method.toUpperCase();
