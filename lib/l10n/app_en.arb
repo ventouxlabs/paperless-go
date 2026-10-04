@@ -1,0 +1,19 @@
+{
+  "@@locale": "en",
+  "commonCancel": "Cancel",
+  "@commonCancel": {
+    "description": "Button that dismisses a dialog without applying anything."
+  },
+  "commonSave": "Save",
+  "@commonSave": {
+    "description": "Button that confirms and saves the value entered in a dialog."
+  },
+  "commonUsername": "Username",
+  "@commonUsername": {
+    "description": "Label of a username text field."
+  },
+  "commonPassword": "Password",
+  "@commonPassword": {
+    "description": "Label of a password text field."
+  }
+}
