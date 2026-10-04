@@ -44,6 +44,7 @@ _$DocumentImpl _$$DocumentImplFromJson(
           ?.map((e) => Note.fromJson(e as Map<String, dynamic>))
           .toList() ??
       const [],
+  userCanChange: json['user_can_change'] as bool?,
 );
 
 Map<String, dynamic> _$$DocumentImplToJson(_$DocumentImpl instance) =>
@@ -65,4 +66,5 @@ Map<String, dynamic> _$$DocumentImplToJson(_$DocumentImpl instance) =>
       'content': instance.content,
       'custom_fields': instance.customFields.map((e) => e.toJson()).toList(),
       'notes': instance.notes.map((e) => e.toJson()).toList(),
+      'user_can_change': instance.userCanChange,
     };

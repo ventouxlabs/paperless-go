@@ -46,7 +46,12 @@ mixin _$Document {
   @JsonKey(name: 'custom_fields')
   List<CustomFieldInstance> get customFields =>
       throw _privateConstructorUsedError;
-  List<Note> get notes => throw _privateConstructorUsedError;
+  List<Note> get notes =>
+      throw _privateConstructorUsedError; // Whether the signed-in user may change THIS document (object-level
+  // permission). Null when absent: `?full_perms=true` responses and older
+  // servers omit it, and callers must treat null as "unknown", not "yes".
+  @JsonKey(name: 'user_can_change')
+  bool? get userCanChange => throw _privateConstructorUsedError;
 
   /// Serializes this Document to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -81,6 +86,7 @@ abstract class $DocumentCopyWith<$Res> {
     String? content,
     @JsonKey(name: 'custom_fields') List<CustomFieldInstance> customFields,
     List<Note> notes,
+    @JsonKey(name: 'user_can_change') bool? userCanChange,
   });
 }
 
@@ -116,6 +122,7 @@ class _$DocumentCopyWithImpl<$Res, $Val extends Document>
     Object? content = freezed,
     Object? customFields = null,
     Object? notes = null,
+    Object? userCanChange = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -187,6 +194,10 @@ class _$DocumentCopyWithImpl<$Res, $Val extends Document>
                 ? _value.notes
                 : notes // ignore: cast_nullable_to_non_nullable
                       as List<Note>,
+            userCanChange: freezed == userCanChange
+                ? _value.userCanChange
+                : userCanChange // ignore: cast_nullable_to_non_nullable
+                      as bool?,
           )
           as $Val,
     );
@@ -220,6 +231,7 @@ abstract class _$$DocumentImplCopyWith<$Res>
     String? content,
     @JsonKey(name: 'custom_fields') List<CustomFieldInstance> customFields,
     List<Note> notes,
+    @JsonKey(name: 'user_can_change') bool? userCanChange,
   });
 }
 
@@ -254,6 +266,7 @@ class __$$DocumentImplCopyWithImpl<$Res>
     Object? content = freezed,
     Object? customFields = null,
     Object? notes = null,
+    Object? userCanChange = freezed,
   }) {
     return _then(
       _$DocumentImpl(
@@ -325,6 +338,10 @@ class __$$DocumentImplCopyWithImpl<$Res>
             ? _value._notes
             : notes // ignore: cast_nullable_to_non_nullable
                   as List<Note>,
+        userCanChange: freezed == userCanChange
+            ? _value.userCanChange
+            : userCanChange // ignore: cast_nullable_to_non_nullable
+                  as bool?,
       ),
     );
   }
@@ -352,6 +369,7 @@ class _$DocumentImpl implements _Document {
     @JsonKey(name: 'custom_fields')
     final List<CustomFieldInstance> customFields = const [],
     final List<Note> notes = const [],
+    @JsonKey(name: 'user_can_change') this.userCanChange,
   }) : _tags = tags,
        _customFields = customFields,
        _notes = notes;
@@ -421,9 +439,16 @@ class _$DocumentImpl implements _Document {
     return EqualUnmodifiableListView(_notes);
   }
 
+  // Whether the signed-in user may change THIS document (object-level
+  // permission). Null when absent: `?full_perms=true` responses and older
+  // servers omit it, and callers must treat null as "unknown", not "yes".
+  @override
+  @JsonKey(name: 'user_can_change')
+  final bool? userCanChange;
+
   @override
   String toString() {
-    return 'Document(id: $id, title: $title, correspondent: $correspondent, documentType: $documentType, storagePath: $storagePath, tags: $tags, created: $created, createdDate: $createdDate, modified: $modified, added: $added, deletedAt: $deletedAt, archiveSerialNumber: $archiveSerialNumber, originalFileName: $originalFileName, archivedFileName: $archivedFileName, content: $content, customFields: $customFields, notes: $notes)';
+    return 'Document(id: $id, title: $title, correspondent: $correspondent, documentType: $documentType, storagePath: $storagePath, tags: $tags, created: $created, createdDate: $createdDate, modified: $modified, added: $added, deletedAt: $deletedAt, archiveSerialNumber: $archiveSerialNumber, originalFileName: $originalFileName, archivedFileName: $archivedFileName, content: $content, customFields: $customFields, notes: $notes, userCanChange: $userCanChange)';
   }
 
   @override
@@ -459,7 +484,9 @@ class _$DocumentImpl implements _Document {
               other._customFields,
               _customFields,
             ) &&
-            const DeepCollectionEquality().equals(other._notes, _notes));
+            const DeepCollectionEquality().equals(other._notes, _notes) &&
+            (identical(other.userCanChange, userCanChange) ||
+                other.userCanChange == userCanChange));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -483,6 +510,7 @@ class _$DocumentImpl implements _Document {
     content,
     const DeepCollectionEquality().hash(_customFields),
     const DeepCollectionEquality().hash(_notes),
+    userCanChange,
   );
 
   /// Create a copy of Document
@@ -519,6 +547,7 @@ abstract class _Document implements Document {
     @JsonKey(name: 'custom_fields')
     final List<CustomFieldInstance> customFields,
     final List<Note> notes,
+    @JsonKey(name: 'user_can_change') final bool? userCanChange,
   }) = _$DocumentImpl;
 
   factory _Document.fromJson(Map<String, dynamic> json) =
@@ -565,7 +594,12 @@ abstract class _Document implements Document {
   @JsonKey(name: 'custom_fields')
   List<CustomFieldInstance> get customFields;
   @override
-  List<Note> get notes;
+  List<Note> get notes; // Whether the signed-in user may change THIS document (object-level
+  // permission). Null when absent: `?full_perms=true` responses and older
+  // servers omit it, and callers must treat null as "unknown", not "yes".
+  @override
+  @JsonKey(name: 'user_can_change')
+  bool? get userCanChange;
 
   /// Create a copy of Document
   /// with the given fields replaced by the non-null parameter values.

@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'dio_client.dart';
 import 'download_file_type.dart';
+import '../models/ai_suggestions.dart';
 import '../models/api_response.dart';
 import '../models/correspondent.dart';
 import '../models/custom_field.dart';
@@ -65,7 +67,18 @@ class PaperlessApi {
 
   Future<Document> getDocument(int id) async {
     final response = await _dio.get('api/documents/$id/');
-    return Document.fromJson(response.data as Map<String, dynamic>);
+    final data = response.data;
+    // A captive portal or an access proxy can answer 200 with an HTML page;
+    // callers catch DioException, not a cast's TypeError.
+    if (data is! Map<String, dynamic>) {
+      throw DioException(
+        requestOptions: response.requestOptions,
+        response: response,
+        type: DioExceptionType.badResponse,
+        message: 'document: expected a JSON object',
+      );
+    }
+    return Document.fromJson(data);
   }
 
   Future<Document> updateDocument(int id, Map<String, dynamic> data) async {
@@ -332,6 +345,39 @@ class PaperlessApi {
     }
     return data;
   }
+
+  /// Native AI suggestions (Paperless-ngx 3.x) for one document.
+  ///
+  /// Every call is a model call the user pays for and the server sends no
+  /// bytes until the model has finished (up to ~120 s per call), so: a
+  /// 150 s receive timeout, never retried ([kNoRetryExtraKey]), and
+  /// cancellable. Only call it on an explicit user action.
+  Future<AiSuggestions> getAiSuggestions(
+    int documentId, {
+    CancelToken? cancelToken,
+  }) async {
+    final response = await _dio.get(
+      'api/documents/$documentId/ai_suggestions/',
+      cancelToken: cancelToken,
+      options: Options(
+        receiveTimeout: aiSuggestionsReceiveTimeout,
+        extra: const {kNoRetryExtraKey: true},
+      ),
+    );
+    final data = response.data;
+    // A captive portal or an access proxy can answer 200 with an HTML page.
+    if (data is! Map<String, dynamic>) {
+      throw DioException(
+        requestOptions: response.requestOptions,
+        response: response,
+        type: DioExceptionType.badResponse,
+        message: 'ai_suggestions: expected a JSON object',
+      );
+    }
+    return AiSuggestions.fromJson(data);
+  }
+
+  static const aiSuggestionsReceiveTimeout = Duration(seconds: 150);
 
   // Statistics
 

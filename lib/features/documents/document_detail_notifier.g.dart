@@ -160,7 +160,7 @@ class _DocumentDownloadProviderElement
   String get title => (origin as DocumentDownloadProvider).title;
 }
 
-String _$documentDetailHash() => r'd85c95b692234c742386e964bdf2f55746aa8c2f';
+String _$documentDetailHash() => r'2c8269f32147679ca8978f2bfbe0e16e29b667ec';
 
 abstract class _$DocumentDetail
     extends BuildlessAutoDisposeAsyncNotifier<Document> {

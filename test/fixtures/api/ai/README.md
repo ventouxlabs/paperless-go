@@ -2,7 +2,9 @@
 
 Captured 2026-10-04 from a throwaway Paperless-ngx 3.2.1 server with the
 native AI module on (`openai-like` backend, `gemini-3.5-flash-lite`). All
-documents are fictional. Users are sanitized.
+documents are fictional. Users are sanitized. Every request sent
+`Accept: application/json; version=9`, the API version the app pins. The AI
+endpoints were also checked under `version=10` and behave the same.
 
 | File | Status | Content-Type |
 |---|---|---|

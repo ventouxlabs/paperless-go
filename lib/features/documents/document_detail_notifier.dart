@@ -21,7 +21,12 @@ class DocumentDetail extends _$DocumentDetail {
     try {
       final api = ref.read(paperlessApiProvider);
       final updated = await api.updateDocument(id, data);
-      state = AsyncData(updated);
+      // Paperless's PATCH reply omits user_can_change (3.2.1): keep what the
+      // GET said rather than turning "can change" into "unknown".
+      state = AsyncData(updated.copyWith(
+        userCanChange:
+            updated.userCanChange ?? previous.valueOrNull?.userCanChange,
+      ));
     } catch (e) {
       state = previous;
       rethrow;
