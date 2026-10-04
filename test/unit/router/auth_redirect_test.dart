@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +8,8 @@ import 'package:paperless_go/app.dart';
 import 'package:paperless_go/core/auth/auth_provider.dart';
 import 'package:paperless_go/core/auth/secure_storage.dart';
 import 'package:paperless_go/core/settings/start_screen.dart';
+
+import '../../helpers/localized_app.dart';
 
 class _FakeAuthenticated extends AuthState {
   @override
@@ -52,7 +53,7 @@ Future<GoRouterHarness> _harness(
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
-      child: MaterialApp.router(routerConfig: router),
+      child: localizedRouterApp(routerConfig: router),
     ),
   );
   await tester.pumpAndSettle();
@@ -98,7 +99,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp.router(routerConfig: router),
+        child: localizedRouterApp(routerConfig: router),
       ),
     );
     // One frame, no settling: an async redirect would still be resolving.
@@ -130,7 +131,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp.router(routerConfig: router),
+        child: localizedRouterApp(routerConfig: router),
       ),
     );
     await tester.pumpAndSettle();
@@ -257,7 +258,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp.router(routerConfig: router),
+        child: localizedRouterApp(routerConfig: router),
       ),
     );
     await tester.pump();

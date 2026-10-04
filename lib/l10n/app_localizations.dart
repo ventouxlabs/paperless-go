@@ -117,6 +117,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Password'**
   String get commonPassword;
+
+  /// Subtitle under the app name on the login screen. Paperless-ngx is a product name.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect to your Paperless-ngx server'**
+  String get loginSubtitle;
+
+  /// Label of the login field where the user types the address of their Paperless-ngx server.
+  ///
+  /// In en, this message translates to:
+  /// **'Server URL'**
+  String get loginServerUrlLabel;
+
+  /// Tooltip of the button next to the server URL that checks the server can be reached.
+  ///
+  /// In en, this message translates to:
+  /// **'Test connection'**
+  String get loginTestConnectionTooltip;
+
+  /// Validation error when the server URL field is empty.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your server URL'**
+  String get loginServerUrlRequired;
+
+  /// Validation error when the server URL has no scheme. Keep https:// and http:// as is.
+  ///
+  /// In en, this message translates to:
+  /// **'URL must start with https:// or http://'**
+  String get loginServerUrlSchemeRequired;
+
+  /// Validation error when the server URL uses plain http://. Tailscale Serve is a product name.
+  ///
+  /// In en, this message translates to:
+  /// **'This app requires https:// — plain http:// connections are blocked. Put your server behind a reverse proxy or Tailscale Serve for a valid HTTPS address.'**
+  String get loginServerUrlHttpBlocked;
+
+  /// Validation error when the server URL cannot be parsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid URL'**
+  String get loginServerUrlInvalid;
+
+  /// Inline warning shown under the server URL as soon as it starts with http://.
+  ///
+  /// In en, this message translates to:
+  /// **'http:// is blocked by this app — use https:// instead'**
+  String get loginHttpWarning;
+
+  /// Switch that replaces the username/password fields with an API token field.
+  ///
+  /// In en, this message translates to:
+  /// **'Login with API token'**
+  String get loginUseApiToken;
+
+  /// Label of the field where the user pastes their Paperless-ngx API token.
+  ///
+  /// In en, this message translates to:
+  /// **'API Token'**
+  String get loginApiTokenLabel;
+
+  /// Validation error when the API token field is empty.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your API token'**
+  String get loginApiTokenRequired;
+
+  /// Validation error when the username field is empty.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your username'**
+  String get loginUsernameRequired;
+
+  /// Validation error when the password field is empty.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your password'**
+  String get loginPasswordRequired;
+
+  /// Button that logs in to the server.
+  ///
+  /// In en, this message translates to:
+  /// **'Login'**
+  String get loginSubmit;
+
+  /// Snackbar shown when logging in fails for a reason other than bad credentials.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection error: {message}'**
+  String loginConnectionError(String message);
+
+  /// Text on the biometric lock screen shown when the app is opened.
+  ///
+  /// In en, this message translates to:
+  /// **'Authenticate to continue'**
+  String get lockSubtitle;
+
+  /// Button on the lock screen that starts biometric authentication again.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock'**
+  String get lockUnlock;
 }
 
 class _AppLocalizationsDelegate
