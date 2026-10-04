@@ -11,16 +11,14 @@ import '../auth/auth_provider.dart';
 /// queue you did not ask for, and sharing a file into the app also had to
 /// pass through it. Library is the neutral default.
 enum StartScreen {
-  library('/documents', 'Library'),
-  inbox('/inbox', 'Inbox');
+  library('/documents'),
+  inbox('/inbox');
 
-  const StartScreen(this.route, this.label);
+  const StartScreen(this.route);
 
-  /// The shell route this screen lives at.
+  /// The shell route this screen lives at. The user-facing name is
+  /// translated, so it lives with the Settings row, not here.
   final String route;
-
-  /// User-facing name, for the Settings row.
-  final String label;
 
   static const StartScreen fallback = StartScreen.library;
 

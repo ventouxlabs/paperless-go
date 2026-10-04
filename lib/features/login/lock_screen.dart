@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/services/biometric_service.dart';
+import '../../l10n/l10n.dart';
 
 class LockScreen extends StatefulWidget {
   final VoidCallback onUnlocked;
@@ -52,7 +53,7 @@ class _LockScreenState extends State<LockScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Authenticate to continue',
+              context.l10n.lockSubtitle,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -61,7 +62,7 @@ class _LockScreenState extends State<LockScreen> {
             FilledButton.icon(
               onPressed: _isAuthenticating ? null : _authenticate,
               icon: const Icon(Icons.fingerprint),
-              label: const Text('Unlock'),
+              label: Text(context.l10n.lockUnlock),
             ),
           ],
         ),

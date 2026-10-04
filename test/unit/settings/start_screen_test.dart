@@ -28,10 +28,9 @@ void main() {
       expect(StartScreen.parse('dashboard'), StartScreen.library);
     });
 
-    test('every screen has a shell route and a label', () {
+    test('every screen has a shell route', () {
       for (final screen in StartScreen.values) {
         expect(screen.route, startsWith('/'));
-        expect(screen.label, isNotEmpty);
       }
     });
   });

@@ -3,14 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:paperless_go/features/login/login_screen.dart';
 
+import '../../helpers/localized_app.dart';
+
 void main() {
   group('LoginScreen server URL validation', () {
     testWidgets('rejects http:// with a clear blocking error', (
       tester,
     ) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(home: LoginScreen()),
+        ProviderScope(
+          child: localizedApp(home: const LoginScreen()),
         ),
       );
       await tester.pump();
@@ -41,8 +43,8 @@ void main() {
 
     testWidgets('accepts https:// with no error', (tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(home: LoginScreen()),
+        ProviderScope(
+          child: localizedApp(home: const LoginScreen()),
         ),
       );
       await tester.pump();

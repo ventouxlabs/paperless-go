@@ -12,6 +12,7 @@ import '../../core/settings/start_screen.dart';
 import '../../core/services/export_destination_providers.dart';
 import '../../core/services/export_destination_service.dart';
 import '../ai_chat/chat_notifier.dart';
+import '../../l10n/l10n.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -28,20 +29,22 @@ class SettingsScreen extends ConsumerWidget {
     final profilesState = ref.watch(serverProfilesNotifierProvider);
     final aiUsername = ref.watch(aiChatUsernameProvider);
     final downloadsDestination = ref.watch(downloadsDestinationProvider);
+    final l10n = context.l10n;
 
     return Scaffold(
       backgroundColor: tokens.paper,
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(title: Text(l10n.settingsTitle)),
       body: ListView(
         padding: const EdgeInsets.only(bottom: Spacing.xxl),
         children: [
           _SettingsSection(
-            title: 'Account',
+            title: l10n.settingsSectionAccount,
             children: [
               ListTile(
                 leading: Icon(Icons.dns_outlined, color: tokens.inkSoft),
-                title: const Text('Server'),
-                subtitle: Text(authState?.serverUrl ?? 'Not connected'),
+                title: Text(l10n.settingsServer),
+                subtitle: Text(
+                    authState?.serverUrl ?? l10n.settingsServerNotConnected),
               ),
               if (profilesState.profiles.length > 1)
                 ...profilesState.profiles.asMap().entries.map((entry) {
@@ -66,7 +69,7 @@ class SettingsScreen extends ConsumerWidget {
                             .switchToProfile(idx),
                     trailing: IconButton(
                       icon: const Icon(Icons.close, size: 18),
-                      tooltip: 'Remove profile',
+                      tooltip: l10n.settingsRemoveProfileTooltip,
                       onPressed: () => ref
                           .read(serverProfilesNotifierProvider.notifier)
                           .removeProfile(idx),
@@ -75,18 +78,19 @@ class SettingsScreen extends ConsumerWidget {
                 }),
               ListTile(
                 leading: Icon(Icons.add, color: tokens.inkSoft),
-                title: const Text('Save current server as profile'),
+                title: Text(l10n.settingsSaveProfile),
                 onTap: () => _addProfile(context, ref),
               ),
               ListTile(
                 leading: Icon(Icons.logout, color: tokens.stamp),
-                title: Text('Sign out', style: TextStyle(color: tokens.stamp)),
+                title: Text(l10n.settingsSignOut,
+                    style: TextStyle(color: tokens.stamp)),
                 onTap: () => _signOut(context, ref),
               ),
             ],
           ),
           _SettingsSection(
-            title: 'Appearance',
+            title: l10n.settingsSectionAppearance,
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(
@@ -98,7 +102,7 @@ class SettingsScreen extends ConsumerWidget {
                       children: [
                         Icon(Icons.palette_outlined, color: tokens.inkSoft),
                         const SizedBox(width: Spacing.lg),
-                        Text('Theme',
+                        Text(l10n.settingsTheme,
                             style: Theme.of(context).textTheme.bodyLarge),
                       ],
                     ),
@@ -107,18 +111,18 @@ class SettingsScreen extends ConsumerWidget {
                       width: double.infinity,
                       child: SegmentedButton<ThemeMode>(
                         showSelectedIcon: false,
-                        segments: const [
+                        segments: [
                           ButtonSegment(
                             value: ThemeMode.system,
-                            label: Text('System'),
+                            label: Text(l10n.settingsThemeSystem),
                           ),
                           ButtonSegment(
                             value: ThemeMode.light,
-                            label: Text('Light'),
+                            label: Text(l10n.settingsThemeLight),
                           ),
                           ButtonSegment(
                             value: ThemeMode.dark,
-                            label: Text('Dark'),
+                            label: Text(l10n.settingsThemeDark),
                           ),
                         ],
                         selected: {themeMode},
@@ -140,7 +144,7 @@ class SettingsScreen extends ConsumerWidget {
                       children: [
                         Icon(Icons.home_outlined, color: tokens.inkSoft),
                         const SizedBox(width: Spacing.lg),
-                        Text('Start screen',
+                        Text(l10n.settingsStartScreen,
                             style: Theme.of(context).textTheme.bodyLarge),
                       ],
                     ),
@@ -153,7 +157,7 @@ class SettingsScreen extends ConsumerWidget {
                           for (final screen in StartScreen.values)
                             ButtonSegment(
                               value: screen,
-                              label: Text(screen.label),
+                              label: Text(_startScreenLabel(l10n, screen)),
                             ),
                         ],
                         selected: {startScreen},
@@ -167,23 +171,23 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
           _SettingsSection(
-            title: 'Security',
+            title: l10n.settingsSectionSecurity,
             children: [
               SwitchListTile(
                 secondary: Icon(Icons.fingerprint, color: tokens.inkSoft),
-                title: const Text('Biometric Lock'),
-                subtitle: const Text('Require authentication on app launch'),
+                title: Text(l10n.settingsBiometricLock),
+                subtitle: Text(l10n.settingsBiometricLockSubtitle),
                 value: biometricEnabled,
                 onChanged: (enabled) => _toggleBiometric(context, ref, enabled),
               ),
             ],
           ),
           _SettingsSection(
-            title: 'Storage',
+            title: l10n.settingsSectionStorage,
             children: [
               ListTile(
                 leading: Icon(Icons.folder_outlined, color: tokens.inkSoft),
-                title: const Text('Download folder'),
+                title: Text(l10n.settingsDownloadFolder),
                 subtitle: _DownloadsLocationSubtitle(
                   destination: downloadsDestination,
                   tokens: tokens,
@@ -194,13 +198,15 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
           _SettingsSection(
-            title: 'AI Chat',
+            title: l10n.settingsSectionAiChat,
             children: [
               ListTile(
                 leading: Icon(Icons.smart_toy_outlined, color: tokens.inkSoft),
-                title: const Text('Paperless-AI URL'),
+                title: Text(l10n.settingsAiUrl),
                 subtitle: Text(
-                  aiUrl?.isNotEmpty == true ? aiUrl! : 'Not configured',
+                  aiUrl?.isNotEmpty == true
+                      ? aiUrl!
+                      : l10n.settingsAiUrlNotConfigured,
                   style: aiUrl?.isNotEmpty == true
                       ? null
                       : TextStyle(color: tokens.inkSoft),
@@ -210,11 +216,11 @@ class SettingsScreen extends ConsumerWidget {
               ),
               ListTile(
                 leading: Icon(Icons.key_outlined, color: tokens.inkSoft),
-                title: const Text('Paperless-AI Credentials'),
+                title: Text(l10n.settingsAiCredentials),
                 subtitle: Text(
                   aiUsername?.isNotEmpty == true
-                      ? 'Logged in as $aiUsername'
-                      : 'Not configured (required for chat)',
+                      ? l10n.settingsAiLoggedInAs(aiUsername!)
+                      : l10n.settingsAiCredentialsNotConfigured,
                   style: aiUsername?.isNotEmpty == true
                       ? null
                       : TextStyle(color: tokens.inkSoft),
@@ -224,56 +230,57 @@ class SettingsScreen extends ConsumerWidget {
               ),
               ListTile(
                 leading: Icon(Icons.wifi_tethering, color: tokens.inkSoft),
-                title: const Text('Verify Connection'),
-                subtitle: const Text('Check server reachability and credentials'),
+                title: Text(l10n.settingsAiVerify),
+                subtitle: Text(l10n.settingsAiVerifySubtitle),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => _verifyAiConnection(context, ref),
               ),
             ],
           ),
           _SettingsSection(
-            title: 'Data',
+            title: l10n.settingsSectionData,
             children: [
               ListTile(
                 leading: Icon(Icons.label_outline, color: tokens.inkSoft),
-                title: const Text('Manage Labels'),
-                subtitle: const Text('Tags, correspondents, document types'),
+                title: Text(l10n.settingsManageLabels),
+                subtitle: Text(l10n.settingsManageLabelsSubtitle),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/labels'),
               ),
               ListTile(
                 leading: Icon(Icons.route_outlined, color: tokens.inkSoft),
-                title: const Text('Workflows'),
-                subtitle: const Text('View and manage automation rules'),
+                title: Text(l10n.settingsWorkflows),
+                subtitle: Text(l10n.settingsWorkflowsSubtitle),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/workflows'),
               ),
               ListTile(
                 leading: Icon(Icons.extension_outlined, color: tokens.inkSoft),
-                title: const Text('Custom Fields'),
-                subtitle: const Text('Create and manage field definitions'),
+                title: Text(l10n.settingsCustomFields),
+                subtitle: Text(l10n.settingsCustomFieldsSubtitle),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/custom-fields'),
               ),
               ListTile(
                 leading: Icon(Icons.bookmark_outline, color: tokens.inkSoft),
-                title: const Text('Upload Templates'),
-                subtitle: const Text('Save metadata presets for quick upload'),
+                title: Text(l10n.settingsUploadTemplates),
+                subtitle: Text(l10n.settingsUploadTemplatesSubtitle),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/templates'),
               ),
               _UploadQueueTile(tokens: tokens),
               ListTile(
                 leading: Icon(Icons.delete_outline, color: tokens.stamp),
-                title: Text('Trash', style: TextStyle(color: tokens.stamp)),
-                subtitle: const Text('View and restore deleted documents'),
+                title: Text(l10n.settingsTrash,
+                    style: TextStyle(color: tokens.stamp)),
+                subtitle: Text(l10n.settingsTrashSubtitle),
                 trailing: Icon(Icons.chevron_right, color: tokens.stamp),
                 onTap: () => context.push('/trash'),
               ),
             ],
           ),
           _SettingsSection(
-            title: 'About',
+            title: l10n.settingsSectionAbout,
             children: [
               FutureBuilder<PackageInfo>(
                 future: PackageInfo.fromPlatform(),
@@ -299,16 +306,16 @@ class SettingsScreen extends ConsumerWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Sign out?'),
-        content: const Text('You will need to log in again.'),
+        title: Text(ctx.l10n.settingsSignOutConfirmTitle),
+        content: Text(ctx.l10n.settingsSignOutConfirmMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(ctx.l10n.commonCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Sign out'),
+            child: Text(ctx.l10n.settingsSignOut),
           ),
         ],
       ),
@@ -323,25 +330,25 @@ class SettingsScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Save Server Profile'),
+        title: Text(ctx.l10n.settingsSaveProfileTitle),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Profile name',
-            hintText: 'e.g., Home Server',
+          decoration: InputDecoration(
+            labelText: ctx.l10n.settingsProfileNameLabel,
+            hintText: ctx.l10n.settingsProfileNameHint,
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(ctx.l10n.commonCancel),
           ),
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx, controller.text.trim());
             },
-            child: const Text('Save'),
+            child: Text(ctx.l10n.commonSave),
           ),
         ],
       ),
@@ -363,15 +370,16 @@ class SettingsScreen extends ConsumerWidget {
       if (!isAvailable) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Biometric authentication is not available on this device')),
+            SnackBar(
+                content: Text(context.l10n.settingsBiometricUnavailable)),
           );
         }
         return;
       }
       // Verify biometric before enabling
+      if (!context.mounted) return;
       final authenticated = await biometricService.authenticate(
-        reason: 'Verify to enable biometric lock',
+        reason: context.l10n.settingsBiometricVerifyReason,
       );
       if (!authenticated || !context.mounted) return;
     }
@@ -383,7 +391,7 @@ class SettingsScreen extends ConsumerWidget {
     final saved = await ref.read(startScreenProvider.notifier).set(screen);
     if (!saved && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not save the start screen.')),
+        SnackBar(content: Text(context.l10n.settingsStartScreenSaveFailed)),
       );
     }
   }
@@ -400,13 +408,13 @@ class SettingsScreen extends ConsumerWidget {
             children: [
               ListTile(
                 leading: const Icon(Icons.folder_open_outlined),
-                title: const Text('Choose a different folder'),
+                title: Text(ctx.l10n.settingsDownloadFolderChooseOther),
                 onTap: () => Navigator.pop(ctx, 'choose'),
               ),
               ListTile(
                 leading: const Icon(Icons.folder_off_outlined),
-                title: const Text('Forget this folder'),
-                subtitle: const Text('Save to folder will ask each time'),
+                title: Text(ctx.l10n.settingsDownloadFolderForget),
+                subtitle: Text(ctx.l10n.settingsDownloadFolderForgetSubtitle),
                 onTap: () => Navigator.pop(ctx, 'forget'),
               ),
             ],
@@ -435,7 +443,7 @@ class SettingsScreen extends ConsumerWidget {
     final service = ref.read(chatServiceProvider);
     if (service == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Set the Paperless-AI URL first.')),
+        SnackBar(content: Text(context.l10n.settingsAiUrlRequired)),
       );
       return;
     }
@@ -443,8 +451,8 @@ class SettingsScreen extends ConsumerWidget {
     final password = ref.read(aiChatPasswordProvider) ?? '';
     if (username.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Set your Paperless-AI credentials first.')),
+        SnackBar(
+            content: Text(context.l10n.settingsAiCredentialsRequired)),
       );
       return;
     }
@@ -452,19 +460,19 @@ class SettingsScreen extends ConsumerWidget {
     showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const PopScope(
+      builder: (ctx) => PopScope(
         canPop: false,
         child: AlertDialog(
           content: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(
+              const SizedBox(
                 width: 18,
                 height: 18,
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
-              SizedBox(width: 16),
-              Text('Verifying...'),
+              const SizedBox(width: 16),
+              Text(ctx.l10n.settingsAiVerifying),
             ],
           ),
         ),
@@ -482,7 +490,7 @@ class SettingsScreen extends ConsumerWidget {
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(error ?? 'Paperless-AI connection verified'),
+        content: Text(error ?? context.l10n.settingsAiVerified),
         backgroundColor:
             error != null ? Theme.of(context).colorScheme.error : null,
       ),
@@ -503,13 +511,13 @@ class SettingsScreen extends ConsumerWidget {
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(
-          title: const Text('Paperless-AI Credentials'),
+          title: Text(ctx.l10n.settingsAiCredentials),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Enter your Paperless-AI login credentials. Required for chat.',
+                ctx.l10n.settingsAiCredentialsDescription,
                 style: Theme.of(ctx).textTheme.bodySmall,
               ),
               const SizedBox(height: 12),
@@ -521,9 +529,9 @@ class SettingsScreen extends ConsumerWidget {
                       controller: usernameController,
                       autofocus: true,
                       autofillHints: const [AutofillHints.username],
-                      decoration: const InputDecoration(
-                        labelText: 'Username',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: ctx.l10n.commonUsername,
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -531,9 +539,9 @@ class SettingsScreen extends ConsumerWidget {
                       controller: passwordController,
                       obscureText: true,
                       autofillHints: const [AutofillHints.password],
-                      decoration: const InputDecoration(
-                        labelText: 'Password',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: ctx.l10n.commonPassword,
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                   ],
@@ -553,7 +561,7 @@ class SettingsScreen extends ConsumerWidget {
           actions: [
             TextButton(
               onPressed: verifying ? null : () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
+              child: Text(ctx.l10n.commonCancel),
             ),
             FilledButton(
               onPressed: verifying
@@ -564,7 +572,7 @@ class SettingsScreen extends ConsumerWidget {
                       final service = ref.read(chatServiceProvider);
                       if (service == null) {
                         setState(() => verifyError =
-                            'Set the Paperless-AI URL first.');
+                            ctx.l10n.settingsAiUrlRequired);
                         return;
                       }
                       setState(() {
@@ -593,7 +601,7 @@ class SettingsScreen extends ConsumerWidget {
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Verify & save'),
+                  : Text(ctx.l10n.settingsAiVerifyAndSave),
             ),
           ],
         ),
@@ -607,7 +615,8 @@ class SettingsScreen extends ConsumerWidget {
           ref.read(aiChatPasswordProvider.notifier).set(result.$2);
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Credentials verified')),
+              SnackBar(
+                  content: Text(context.l10n.settingsAiCredentialsVerified)),
             );
           }
         });
@@ -622,13 +631,13 @@ class SettingsScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Paperless-AI URL'),
+        title: Text(ctx.l10n.settingsAiUrl),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Enter the URL of your Paperless-AI instance (e.g., http://your-server:8083)',
+              ctx.l10n.settingsAiUrlDescription,
               style: Theme.of(ctx).textTheme.bodySmall,
             ),
             const SizedBox(height: 12),
@@ -636,10 +645,10 @@ class SettingsScreen extends ConsumerWidget {
               controller: controller,
               autofocus: true,
               keyboardType: TextInputType.url,
-              decoration: const InputDecoration(
-                labelText: 'URL',
+              decoration: InputDecoration(
+                labelText: ctx.l10n.settingsAiUrlFieldLabel,
                 hintText: 'http://your-server:8083',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
               ),
             ),
           ],
@@ -647,13 +656,13 @@ class SettingsScreen extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(ctx.l10n.commonCancel),
           ),
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx, controller.text.trim());
             },
-            child: const Text('Save'),
+            child: Text(ctx.l10n.commonSave),
           ),
         ],
       ),
@@ -666,6 +675,14 @@ class SettingsScreen extends ConsumerWidget {
     });
   }
 }
+
+/// Translated name of a [StartScreen], for the Settings row. A switch rather
+/// than a field on the enum so the label follows the app language.
+String _startScreenLabel(AppLocalizations l10n, StartScreen screen) =>
+    switch (screen) {
+      StartScreen.library => l10n.settingsStartScreenLibrary,
+      StartScreen.inbox => l10n.settingsStartScreenInbox,
+    };
 
 /// The truthful state of the downloads folder, including the case where a
 /// folder was chosen but Android has since revoked access to it.
@@ -684,19 +701,20 @@ class _DownloadsLocationSubtitle extends StatelessWidget {
       AsyncData(:final value) => switch (value.status) {
           DestinationStatus.ready => Text(value.displayName),
           DestinationStatus.unset => Text(
-              'Ask each time',
+              context.l10n.settingsDownloadFolderAskEachTime,
               style: TextStyle(color: tokens.inkSoft),
             ),
           DestinationStatus.unavailable => Text(
-              '${value.displayName} — no longer available, tap to choose again',
+              context.l10n.settingsDownloadFolderUnavailable(value.displayName),
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
         },
       AsyncError() => Text(
-          'Could not check folder access',
+          context.l10n.settingsDownloadFolderCheckFailed,
           style: TextStyle(color: Theme.of(context).colorScheme.error),
         ),
-      _ => Text('Checking…', style: TextStyle(color: tokens.inkSoft)),
+      _ => Text(context.l10n.settingsDownloadFolderChecking,
+          style: TextStyle(color: tokens.inkSoft)),
     };
   }
 }
@@ -771,15 +789,16 @@ class _UploadQueueTile extends ConsumerWidget {
     final waiting =
         (ref.watch(pendingUploadsProvider).valueOrNull ?? const []).length;
     final colorScheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
 
     return ListTile(
       leading: Icon(Icons.upload_file_outlined, color: tokens.inkSoft),
-      title: const Text('Upload queue'),
+      title: Text(l10n.settingsUploadQueue),
       subtitle: Text(
         switch ((waiting, stuck)) {
-          (0, _) => 'Nothing waiting to upload',
-          (_, 0) => '$waiting waiting to upload',
-          (_, final s) => '$waiting waiting · $s need attention',
+          (0, _) => l10n.settingsUploadQueueEmpty,
+          (_, 0) => l10n.settingsUploadQueueWaiting(waiting),
+          (_, final s) => l10n.settingsUploadQueueNeedsAttention(waiting, s),
         },
       ),
       trailing: Row(

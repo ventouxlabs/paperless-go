@@ -1,0 +1,393 @@
+{
+  "@@locale": "en",
+  "commonCancel": "Cancel",
+  "@commonCancel": {
+    "description": "Button that dismisses a dialog without applying anything."
+  },
+  "commonSave": "Save",
+  "@commonSave": {
+    "description": "Button that confirms and saves the value entered in a dialog."
+  },
+  "commonUsername": "Username",
+  "@commonUsername": {
+    "description": "Label of a username text field."
+  },
+  "commonPassword": "Password",
+  "@commonPassword": {
+    "description": "Label of a password text field."
+  },
+  "loginSubtitle": "Connect to your Paperless-ngx server",
+  "@loginSubtitle": {
+    "description": "Subtitle under the app name on the login screen. Paperless-ngx is a product name."
+  },
+  "loginServerUrlLabel": "Server URL",
+  "@loginServerUrlLabel": {
+    "description": "Label of the login field where the user types the address of their Paperless-ngx server."
+  },
+  "loginTestConnectionTooltip": "Test connection",
+  "@loginTestConnectionTooltip": {
+    "description": "Tooltip of the button next to the server URL that checks the server can be reached."
+  },
+  "loginServerUrlRequired": "Enter your server URL",
+  "@loginServerUrlRequired": {
+    "description": "Validation error when the server URL field is empty."
+  },
+  "loginServerUrlSchemeRequired": "URL must start with https:// or http://",
+  "@loginServerUrlSchemeRequired": {
+    "description": "Validation error when the server URL has no scheme. Keep https:// and http:// as is."
+  },
+  "loginServerUrlHttpBlocked": "This app requires https:// — plain http:// connections are blocked. Put your server behind a reverse proxy or Tailscale Serve for a valid HTTPS address.",
+  "@loginServerUrlHttpBlocked": {
+    "description": "Validation error when the server URL uses plain http://. Tailscale Serve is a product name."
+  },
+  "loginServerUrlInvalid": "Enter a valid URL",
+  "@loginServerUrlInvalid": {
+    "description": "Validation error when the server URL cannot be parsed."
+  },
+  "loginHttpWarning": "http:// is blocked by this app — use https:// instead",
+  "@loginHttpWarning": {
+    "description": "Inline warning shown under the server URL as soon as it starts with http://."
+  },
+  "loginUseApiToken": "Login with API token",
+  "@loginUseApiToken": {
+    "description": "Switch that replaces the username/password fields with an API token field."
+  },
+  "loginApiTokenLabel": "API Token",
+  "@loginApiTokenLabel": {
+    "description": "Label of the field where the user pastes their Paperless-ngx API token."
+  },
+  "loginApiTokenRequired": "Enter your API token",
+  "@loginApiTokenRequired": {
+    "description": "Validation error when the API token field is empty."
+  },
+  "loginUsernameRequired": "Enter your username",
+  "@loginUsernameRequired": {
+    "description": "Validation error when the username field is empty."
+  },
+  "loginPasswordRequired": "Enter your password",
+  "@loginPasswordRequired": {
+    "description": "Validation error when the password field is empty."
+  },
+  "loginSubmit": "Login",
+  "@loginSubmit": {
+    "description": "Button that logs in to the server."
+  },
+  "loginConnectionError": "Connection error: {message}",
+  "@loginConnectionError": {
+    "description": "Snackbar shown when logging in fails for a reason other than bad credentials.",
+    "placeholders": {
+      "message": {
+        "type": "String",
+        "example": "The server took too long to respond."
+      }
+    }
+  },
+  "lockSubtitle": "Authenticate to continue",
+  "@lockSubtitle": {
+    "description": "Text on the biometric lock screen shown when the app is opened."
+  },
+  "lockUnlock": "Unlock",
+  "@lockUnlock": {
+    "description": "Button on the lock screen that starts biometric authentication again."
+  },
+  "settingsTitle": "Settings",
+  "@settingsTitle": {
+    "description": "Title of the settings screen."
+  },
+  "settingsSectionAccount": "Account",
+  "@settingsSectionAccount": {
+    "description": "Settings section heading: server, profiles and sign out."
+  },
+  "settingsSectionAppearance": "Appearance",
+  "@settingsSectionAppearance": {
+    "description": "Settings section heading: theme and start screen."
+  },
+  "settingsSectionSecurity": "Security",
+  "@settingsSectionSecurity": {
+    "description": "Settings section heading: biometric lock."
+  },
+  "settingsSectionStorage": "Storage",
+  "@settingsSectionStorage": {
+    "description": "Settings section heading: download folder."
+  },
+  "settingsSectionAiChat": "AI Chat",
+  "@settingsSectionAiChat": {
+    "description": "Settings section heading: Paperless-AI chat configuration."
+  },
+  "settingsSectionData": "Data",
+  "@settingsSectionData": {
+    "description": "Settings section heading: labels, workflows, custom fields, templates, upload queue and trash."
+  },
+  "settingsSectionAbout": "About",
+  "@settingsSectionAbout": {
+    "description": "Settings section heading: app version."
+  },
+  "settingsServer": "Server",
+  "@settingsServer": {
+    "description": "Settings row showing the address of the server the user is logged in to."
+  },
+  "settingsServerNotConnected": "Not connected",
+  "@settingsServerNotConnected": {
+    "description": "Shown in place of the server address when the user is not logged in."
+  },
+  "settingsRemoveProfileTooltip": "Remove profile",
+  "@settingsRemoveProfileTooltip": {
+    "description": "Tooltip of the button that deletes a saved server profile."
+  },
+  "settingsSaveProfile": "Save current server as profile",
+  "@settingsSaveProfile": {
+    "description": "Settings row that saves the current server so the user can switch back to it later."
+  },
+  "settingsSaveProfileTitle": "Save Server Profile",
+  "@settingsSaveProfileTitle": {
+    "description": "Title of the dialog that names a new server profile."
+  },
+  "settingsProfileNameLabel": "Profile name",
+  "@settingsProfileNameLabel": {
+    "description": "Label of the server profile name field."
+  },
+  "settingsProfileNameHint": "e.g., Home Server",
+  "@settingsProfileNameHint": {
+    "description": "Example value shown in the empty server profile name field."
+  },
+  "settingsSignOut": "Sign out",
+  "@settingsSignOut": {
+    "description": "Settings row, and the confirm button of its dialog, that logs the user out."
+  },
+  "settingsSignOutConfirmTitle": "Sign out?",
+  "@settingsSignOutConfirmTitle": {
+    "description": "Title of the dialog asking the user to confirm signing out."
+  },
+  "settingsSignOutConfirmMessage": "You will need to log in again.",
+  "@settingsSignOutConfirmMessage": {
+    "description": "Body of the dialog asking the user to confirm signing out."
+  },
+  "settingsTheme": "Theme",
+  "@settingsTheme": {
+    "description": "Settings row choosing between system, light and dark theme."
+  },
+  "settingsThemeSystem": "System",
+  "@settingsThemeSystem": {
+    "description": "Theme option that follows the device's light/dark setting. Keep it short: it shares a row with two other options."
+  },
+  "settingsThemeLight": "Light",
+  "@settingsThemeLight": {
+    "description": "Light theme option. Keep it short: it shares a row with two other options."
+  },
+  "settingsThemeDark": "Dark",
+  "@settingsThemeDark": {
+    "description": "Dark theme option. Keep it short: it shares a row with two other options."
+  },
+  "settingsStartScreen": "Start screen",
+  "@settingsStartScreen": {
+    "description": "Settings row choosing which screen the app opens on."
+  },
+  "settingsStartScreenLibrary": "Library",
+  "@settingsStartScreenLibrary": {
+    "description": "Start screen option: the list of all documents."
+  },
+  "settingsStartScreenInbox": "Inbox",
+  "@settingsStartScreenInbox": {
+    "description": "Start screen option: the inbox of documents waiting to be sorted."
+  },
+  "settingsStartScreenSaveFailed": "Could not save the start screen.",
+  "@settingsStartScreenSaveFailed": {
+    "description": "Snackbar shown when the chosen start screen could not be stored."
+  },
+  "settingsBiometricLock": "Biometric Lock",
+  "@settingsBiometricLock": {
+    "description": "Switch that requires fingerprint or face unlock when the app is opened."
+  },
+  "settingsBiometricLockSubtitle": "Require authentication on app launch",
+  "@settingsBiometricLockSubtitle": {
+    "description": "Explanation under the biometric lock switch."
+  },
+  "settingsBiometricUnavailable": "Biometric authentication is not available on this device",
+  "@settingsBiometricUnavailable": {
+    "description": "Snackbar shown when the user turns on the biometric lock on a device without biometrics."
+  },
+  "settingsBiometricVerifyReason": "Verify to enable biometric lock",
+  "@settingsBiometricVerifyReason": {
+    "description": "Reason shown in the system biometric prompt when turning the lock on."
+  },
+  "settingsDownloadFolder": "Download folder",
+  "@settingsDownloadFolder": {
+    "description": "Settings row choosing the folder where documents are saved."
+  },
+  "settingsDownloadFolderAskEachTime": "Ask each time",
+  "@settingsDownloadFolderAskEachTime": {
+    "description": "Shown under the download folder row when no folder is set."
+  },
+  "settingsDownloadFolderUnavailable": "{folder} — no longer available, tap to choose again",
+  "@settingsDownloadFolderUnavailable": {
+    "description": "Shown under the download folder row when Android revoked access to the chosen folder.",
+    "placeholders": {
+      "folder": {
+        "type": "String",
+        "example": "Documents"
+      }
+    }
+  },
+  "settingsDownloadFolderCheckFailed": "Could not check folder access",
+  "@settingsDownloadFolderCheckFailed": {
+    "description": "Shown under the download folder row when its access could not be checked."
+  },
+  "settingsDownloadFolderChecking": "Checking…",
+  "@settingsDownloadFolderChecking": {
+    "description": "Shown under the download folder row while its access is being checked."
+  },
+  "settingsDownloadFolderChooseOther": "Choose a different folder",
+  "@settingsDownloadFolderChooseOther": {
+    "description": "Option in the download folder sheet that opens the folder picker."
+  },
+  "settingsDownloadFolderForget": "Forget this folder",
+  "@settingsDownloadFolderForget": {
+    "description": "Option in the download folder sheet that clears the chosen folder."
+  },
+  "settingsDownloadFolderForgetSubtitle": "Save to folder will ask each time",
+  "@settingsDownloadFolderForgetSubtitle": {
+    "description": "Explanation under the forget folder option. \"Save to folder\" is the name of a document action."
+  },
+  "settingsAiUrl": "Paperless-AI URL",
+  "@settingsAiUrl": {
+    "description": "Settings row, and title of its dialog, for the address of the Paperless-AI server. Paperless-AI is a product name."
+  },
+  "settingsAiUrlNotConfigured": "Not configured",
+  "@settingsAiUrlNotConfigured": {
+    "description": "Shown under the Paperless-AI URL row when no address is set."
+  },
+  "settingsAiUrlDescription": "Enter the URL of your Paperless-AI instance (e.g., http://your-server:8083)",
+  "@settingsAiUrlDescription": {
+    "description": "Explanation at the top of the Paperless-AI URL dialog. Keep the example address as is."
+  },
+  "settingsAiUrlFieldLabel": "URL",
+  "@settingsAiUrlFieldLabel": {
+    "description": "Label of the address field in the Paperless-AI URL dialog."
+  },
+  "settingsAiUrlRequired": "Set the Paperless-AI URL first.",
+  "@settingsAiUrlRequired": {
+    "description": "Error shown when verifying Paperless-AI before its address is set."
+  },
+  "settingsAiCredentials": "Paperless-AI Credentials",
+  "@settingsAiCredentials": {
+    "description": "Settings row, and title of its dialog, for the Paperless-AI username and password."
+  },
+  "settingsAiLoggedInAs": "Logged in as {username}",
+  "@settingsAiLoggedInAs": {
+    "description": "Shown under the Paperless-AI credentials row when credentials are saved.",
+    "placeholders": {
+      "username": {
+        "type": "String",
+        "example": "alice"
+      }
+    }
+  },
+  "settingsAiCredentialsNotConfigured": "Not configured (required for chat)",
+  "@settingsAiCredentialsNotConfigured": {
+    "description": "Shown under the Paperless-AI credentials row when none are saved."
+  },
+  "settingsAiCredentialsDescription": "Enter your Paperless-AI login credentials. Required for chat.",
+  "@settingsAiCredentialsDescription": {
+    "description": "Explanation at the top of the Paperless-AI credentials dialog."
+  },
+  "settingsAiCredentialsRequired": "Set your Paperless-AI credentials first.",
+  "@settingsAiCredentialsRequired": {
+    "description": "Snackbar shown when verifying Paperless-AI before credentials are saved."
+  },
+  "settingsAiVerifyAndSave": "Verify & save",
+  "@settingsAiVerifyAndSave": {
+    "description": "Button in the credentials dialog that checks them against Paperless-AI, then saves them."
+  },
+  "settingsAiCredentialsVerified": "Credentials verified",
+  "@settingsAiCredentialsVerified": {
+    "description": "Snackbar shown after Paperless-AI credentials were checked and saved."
+  },
+  "settingsAiVerify": "Verify Connection",
+  "@settingsAiVerify": {
+    "description": "Settings row that checks Paperless-AI can be reached with the saved credentials."
+  },
+  "settingsAiVerifySubtitle": "Check server reachability and credentials",
+  "@settingsAiVerifySubtitle": {
+    "description": "Explanation under the verify connection row."
+  },
+  "settingsAiVerifying": "Verifying...",
+  "@settingsAiVerifying": {
+    "description": "Progress dialog shown while Paperless-AI is being checked."
+  },
+  "settingsAiVerified": "Paperless-AI connection verified",
+  "@settingsAiVerified": {
+    "description": "Snackbar shown when Paperless-AI was reached and the credentials were accepted."
+  },
+  "settingsManageLabels": "Manage Labels",
+  "@settingsManageLabels": {
+    "description": "Settings row opening the screen that manages tags, correspondents and document types."
+  },
+  "settingsManageLabelsSubtitle": "Tags, correspondents, document types",
+  "@settingsManageLabelsSubtitle": {
+    "description": "Explanation under the manage labels row. These are Paperless-ngx concepts."
+  },
+  "settingsWorkflows": "Workflows",
+  "@settingsWorkflows": {
+    "description": "Settings row opening the Paperless-ngx workflows screen."
+  },
+  "settingsWorkflowsSubtitle": "View and manage automation rules",
+  "@settingsWorkflowsSubtitle": {
+    "description": "Explanation under the workflows row."
+  },
+  "settingsCustomFields": "Custom Fields",
+  "@settingsCustomFields": {
+    "description": "Settings row opening the Paperless-ngx custom fields screen."
+  },
+  "settingsCustomFieldsSubtitle": "Create and manage field definitions",
+  "@settingsCustomFieldsSubtitle": {
+    "description": "Explanation under the custom fields row."
+  },
+  "settingsUploadTemplates": "Upload Templates",
+  "@settingsUploadTemplates": {
+    "description": "Settings row opening the screen of saved metadata presets used when uploading."
+  },
+  "settingsUploadTemplatesSubtitle": "Save metadata presets for quick upload",
+  "@settingsUploadTemplatesSubtitle": {
+    "description": "Explanation under the upload templates row."
+  },
+  "settingsUploadQueue": "Upload queue",
+  "@settingsUploadQueue": {
+    "description": "Settings row opening the list of uploads that have not reached the server yet."
+  },
+  "settingsUploadQueueEmpty": "Nothing waiting to upload",
+  "@settingsUploadQueueEmpty": {
+    "description": "Shown under the upload queue row when the queue is empty."
+  },
+  "settingsUploadQueueWaiting": "{count, plural, other{{count} waiting to upload}}",
+  "@settingsUploadQueueWaiting": {
+    "description": "Shown under the upload queue row: number of files waiting to upload.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "settingsUploadQueueNeedsAttention": "{waiting} waiting · {stuck} need attention",
+  "@settingsUploadQueueNeedsAttention": {
+    "description": "Shown under the upload queue row when some uploads stopped retrying and need the user.",
+    "placeholders": {
+      "waiting": {
+        "type": "int",
+        "example": "3"
+      },
+      "stuck": {
+        "type": "int",
+        "example": "1"
+      }
+    }
+  },
+  "settingsTrash": "Trash",
+  "@settingsTrash": {
+    "description": "Settings row opening the trash (deleted documents)."
+  },
+  "settingsTrashSubtitle": "View and restore deleted documents",
+  "@settingsTrashSubtitle": {
+    "description": "Explanation under the trash row."
+  }
+}

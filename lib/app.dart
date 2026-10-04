@@ -35,6 +35,7 @@ import 'features/annotate/annotate_screen.dart';
 import 'features/search/similar_screen.dart';
 import 'features/trash/trash_screen.dart';
 import 'features/upload_queue/upload_queue_screen.dart';
+import 'l10n/app_localizations.dart';
 
 part 'app.g.dart';
 
@@ -359,6 +360,8 @@ class _PaperlessGoAppState extends ConsumerState<PaperlessGoApp>
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: themeMode,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
       builder: (context, child) {

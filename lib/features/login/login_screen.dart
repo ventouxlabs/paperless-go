@@ -6,6 +6,7 @@ import '../../core/auth/auth_service.dart';
 import '../../core/design_tokens.dart';
 import '../../core/api/api_error_mapper.dart';
 import '../../core/services/user_trust_store.dart';
+import '../../l10n/l10n.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -105,7 +106,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Connection error: ${friendlyApiMessage(e)}')),
+          SnackBar(
+            content: Text(
+              context.l10n.loginConnectionError(friendlyApiMessage(e)),
+            ),
+          ),
         );
       }
     }
@@ -117,6 +122,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final isLoading = authState.isLoading;
     final tokens = AppTokens.of(context);
     final connectionReason = _connectionReason;
+    final l10n = context.l10n;
 
     return Scaffold(
       body: SafeArea(
@@ -145,7 +151,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       const SizedBox(height: Spacing.sm),
                       Text(
-                        'Connect to your Paperless-ngx server',
+                        l10n.loginSubtitle,
                         style: Theme.of(
                           context,
                         ).textTheme.bodyMedium?.copyWith(color: tokens.inkSoft),
@@ -157,7 +163,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       TextFormField(
                         controller: _serverUrlController,
                         decoration: InputDecoration(
-                          labelText: 'Server URL',
+                          labelText: l10n.loginServerUrlLabel,
                           hintText: 'https://paperless.example.com',
                           prefixIcon: const Icon(Icons.dns_outlined),
                           suffixIcon: _testing
@@ -185,7 +191,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         : tokens.stamp,
                                   ),
                                   onPressed: _testConnection,
-                                  tooltip: 'Test connection',
+                                  tooltip: l10n.loginTestConnectionTooltip,
                                 ),
                         ),
                         autofillHints: const [AutofillHints.url],
@@ -195,21 +201,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           if (v == null ||
                               v.trim().isEmpty ||
                               v.trim() == 'https://') {
-                            return 'Enter your server URL';
+                            return l10n.loginServerUrlRequired;
                           }
                           final url = v.trim().toLowerCase();
                           if (!url.startsWith('http://') &&
                               !url.startsWith('https://')) {
-                            return 'URL must start with https:// or http://';
+                            return l10n.loginServerUrlSchemeRequired;
                           }
                           if (url.startsWith('http://')) {
-                            return 'This app requires https:// — plain http:// connections '
-                                'are blocked. Put your server behind a reverse proxy or '
-                                'Tailscale Serve for a valid HTTPS address.';
+                            return l10n.loginServerUrlHttpBlocked;
                           }
                           final parsed = Uri.tryParse(v.trim());
                           if (parsed == null || parsed.host.isEmpty) {
-                            return 'Enter a valid URL';
+                            return l10n.loginServerUrlInvalid;
                           }
                           return null;
                         },
@@ -238,7 +242,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
-                                  'http:// is blocked by this app — use https:// instead',
+                                  l10n.loginHttpWarning,
                                   style: Theme.of(context).textTheme.bodySmall
                                       ?.copyWith(color: tokens.stamp),
                                 ),
@@ -274,7 +278,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                       // Token/credentials toggle
                       SwitchListTile(
-                        title: const Text('Login with API token'),
+                        title: Text(l10n.loginUseApiToken),
                         value: _useTokenLogin,
                         onChanged: (v) => setState(() => _useTokenLogin = v),
                         contentPadding: EdgeInsets.zero,
@@ -284,14 +288,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       if (_useTokenLogin) ...[
                         TextFormField(
                           controller: _tokenController,
-                          decoration: const InputDecoration(
-                            labelText: 'API Token',
-                            prefixIcon: Icon(Icons.key_outlined),
+                          decoration: InputDecoration(
+                            labelText: l10n.loginApiTokenLabel,
+                            prefixIcon: const Icon(Icons.key_outlined),
                           ),
                           autocorrect: false,
                           validator: (v) {
                             if (v == null || v.trim().isEmpty) {
-                              return 'Enter your API token';
+                              return l10n.loginApiTokenRequired;
                             }
                             return null;
                           },
@@ -299,15 +303,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ] else ...[
                         TextFormField(
                           controller: _usernameController,
-                          decoration: const InputDecoration(
-                            labelText: 'Username',
-                            prefixIcon: Icon(Icons.person_outlined),
+                          decoration: InputDecoration(
+                            labelText: l10n.commonUsername,
+                            prefixIcon: const Icon(Icons.person_outlined),
                           ),
                           autofillHints: const [AutofillHints.username],
                           autocorrect: false,
                           validator: (v) {
                             if (v == null || v.trim().isEmpty) {
-                              return 'Enter your username';
+                              return l10n.loginUsernameRequired;
                             }
                             return null;
                           },
@@ -316,7 +320,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         TextFormField(
                           controller: _passwordController,
                           decoration: InputDecoration(
-                            labelText: 'Password',
+                            labelText: l10n.commonPassword,
                             prefixIcon: const Icon(Icons.lock_outlined),
                             suffixIcon: IconButton(
                               icon: Icon(
@@ -333,7 +337,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           obscureText: _obscurePassword,
                           validator: (v) {
                             if (v == null || v.isEmpty) {
-                              return 'Enter your password';
+                              return l10n.loginPasswordRequired;
                             }
                             return null;
                           },
@@ -357,7 +361,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   color: tokens.onAccent,
                                 ),
                               )
-                            : const Text('Login'),
+                            : Text(l10n.loginSubmit),
                       ),
                     ],
                   ),
