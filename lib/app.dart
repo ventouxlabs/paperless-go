@@ -167,10 +167,11 @@ GoRouter router(Ref ref) {
         path: '/workflows/:id',
         builder: (_, state) {
           final id = int.tryParse(state.pathParameters['id'] ?? '');
-          if (id == null)
+          if (id == null) {
             return const Scaffold(
               body: Center(child: Text('Invalid workflow ID')),
             );
+          }
           return WorkflowDetailScreen(workflowId: id);
         },
       ),
@@ -184,8 +185,9 @@ GoRouter router(Ref ref) {
         path: '/annotate',
         builder: (_, state) {
           final extra = state.extra as Map<String, dynamic>?;
-          if (extra == null)
+          if (extra == null) {
             return const Scaffold(body: Center(child: Text('No data')));
+          }
           return AnnotateScreen(
             pdfPath: extra['pdfPath'] as String,
             title: extra['title'] as String,
@@ -196,8 +198,9 @@ GoRouter router(Ref ref) {
         path: '/search/similar/:id',
         builder: (_, state) {
           final id = int.tryParse(state.pathParameters['id'] ?? '');
-          if (id == null)
+          if (id == null) {
             return const Scaffold(body: Center(child: Text('Invalid ID')));
+          }
           return SimilarScreen(documentId: id);
         },
       ),
@@ -257,10 +260,11 @@ GoRouter router(Ref ref) {
         path: '/documents/:id',
         builder: (_, state) {
           final id = int.tryParse(state.pathParameters['id'] ?? '');
-          if (id == null)
+          if (id == null) {
             return const Scaffold(
               body: Center(child: Text('Invalid document ID')),
             );
+          }
           return DocumentDetailScreen(documentId: id);
         },
         routes: [
@@ -268,10 +272,11 @@ GoRouter router(Ref ref) {
             path: 'preview',
             builder: (_, state) {
               final id = int.tryParse(state.pathParameters['id'] ?? '');
-              if (id == null)
+              if (id == null) {
                 return const Scaffold(
                   body: Center(child: Text('Invalid document ID')),
                 );
+              }
               return DocumentPreviewScreen(documentId: id);
             },
           ),
@@ -279,10 +284,11 @@ GoRouter router(Ref ref) {
             path: 'chat',
             builder: (_, state) {
               final id = int.tryParse(state.pathParameters['id'] ?? '');
-              if (id == null)
+              if (id == null) {
                 return const Scaffold(
                   body: Center(child: Text('Invalid document ID')),
                 );
+              }
               final title =
                   state.uri.queryParameters['title'] ?? 'Document $id';
               return ChatScreen(documentId: id, documentTitle: title);
