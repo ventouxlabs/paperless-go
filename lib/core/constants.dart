@@ -14,6 +14,7 @@ class StorageKeys {
   static const String aiChatUrl = 'ai_chat_url';
   static const String aiChatUsername = 'ai_chat_username';
   static const String aiChatPassword = 'ai_chat_password';
+  static const String aiChatBackend = 'ai_chat_backend';
   static const String themeMode = 'theme_mode';
   static const String startScreen = 'start_screen';
   static const String biometricLock = 'biometric_lock';

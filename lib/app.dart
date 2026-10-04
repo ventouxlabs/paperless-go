@@ -14,6 +14,7 @@ import 'core/theme.dart';
 import 'features/login/lock_screen.dart';
 import 'features/upload/share_intent_handler.dart';
 import 'features/ai_chat/chat_screen.dart';
+import 'features/ai_chat/native_chat_providers.dart';
 import 'features/labels/labels_screen.dart';
 import 'features/search/search_screen.dart';
 import 'features/custom_fields/custom_fields_screen.dart';
@@ -65,14 +66,21 @@ GoRouter router(Ref ref) {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline, size: 64,
-                color: Theme.of(context).colorScheme.error),
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Theme.of(context).colorScheme.error,
+            ),
             const SizedBox(height: Spacing.lg),
-            Text('Page not found',
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'Page not found',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: Spacing.sm),
-            Text(state.uri.toString(),
-                style: Theme.of(context).textTheme.bodySmall),
+            Text(
+              state.uri.toString(),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
             const SizedBox(height: Spacing.xl),
             FilledButton.tonal(
               onPressed: () => GoRouter.of(context).go('/'),
@@ -147,42 +155,27 @@ GoRouter router(Ref ref) {
     },
     routes: [
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
-      GoRoute(
-        path: '/search',
-        builder: (_, __) => const SearchScreen(),
-      ),
-      GoRoute(
-        path: '/labels',
-        builder: (_, __) => const LabelsScreen(),
-      ),
-      GoRoute(
-        path: '/workflows',
-        builder: (_, __) => const WorkflowsScreen(),
-      ),
+      GoRoute(path: '/search', builder: (_, __) => const SearchScreen()),
+      GoRoute(path: '/labels', builder: (_, __) => const LabelsScreen()),
+      GoRoute(path: '/workflows', builder: (_, __) => const WorkflowsScreen()),
       GoRoute(
         path: '/custom-fields',
         builder: (_, __) => const CustomFieldsScreen(),
       ),
-      GoRoute(
-        path: '/templates',
-        builder: (_, __) => const TemplatesScreen(),
-      ),
+      GoRoute(path: '/templates', builder: (_, __) => const TemplatesScreen()),
       GoRoute(
         path: '/workflows/:id',
         builder: (_, state) {
           final id = int.tryParse(state.pathParameters['id'] ?? '');
-          if (id == null) return const Scaffold(body: Center(child: Text('Invalid workflow ID')));
+          if (id == null)
+            return const Scaffold(
+              body: Center(child: Text('Invalid workflow ID')),
+            );
           return WorkflowDetailScreen(workflowId: id);
         },
       ),
-      GoRoute(
-        path: '/settings',
-        builder: (_, __) => const SettingsScreen(),
-      ),
-      GoRoute(
-        path: '/trash',
-        builder: (_, __) => const TrashScreen(),
-      ),
+      GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
+      GoRoute(path: '/trash', builder: (_, __) => const TrashScreen()),
       GoRoute(
         path: '/upload-queue',
         builder: (_, __) => const UploadQueueScreen(),
@@ -191,7 +184,8 @@ GoRouter router(Ref ref) {
         path: '/annotate',
         builder: (_, state) {
           final extra = state.extra as Map<String, dynamic>?;
-          if (extra == null) return const Scaffold(body: Center(child: Text('No data')));
+          if (extra == null)
+            return const Scaffold(body: Center(child: Text('No data')));
           return AnnotateScreen(
             pdfPath: extra['pdfPath'] as String,
             title: extra['title'] as String,
@@ -202,7 +196,8 @@ GoRouter router(Ref ref) {
         path: '/search/similar/:id',
         builder: (_, state) {
           final id = int.tryParse(state.pathParameters['id'] ?? '');
-          if (id == null) return const Scaffold(body: Center(child: Text('Invalid ID')));
+          if (id == null)
+            return const Scaffold(body: Center(child: Text('Invalid ID')));
           return SimilarScreen(documentId: id);
         },
       ),
@@ -211,7 +206,9 @@ GoRouter router(Ref ref) {
         builder: (_, state) {
           final extra = state.extra;
           if (extra is! List) {
-            return const Scaffold(body: Center(child: Text('No images provided')));
+            return const Scaffold(
+              body: Center(child: Text('No images provided')),
+            );
           }
           return ScanReviewScreen(imagePaths: extra.cast<String>());
         },
@@ -221,7 +218,9 @@ GoRouter router(Ref ref) {
         builder: (_, state) {
           final extra = state.extra;
           if (extra is! List) {
-            return const Scaffold(body: Center(child: Text('No images provided')));
+            return const Scaffold(
+              body: Center(child: Text('No images provided')),
+            );
           }
           return EnhanceScreen(imagePaths: extra.cast<String>());
         },
@@ -231,7 +230,9 @@ GoRouter router(Ref ref) {
         builder: (_, state) {
           final args = parsePdfPreviewArgs(state.extra);
           if (args == null) {
-            return const Scaffold(body: Center(child: Text('No images provided')));
+            return const Scaffold(
+              body: Center(child: Text('No images provided')),
+            );
           }
           return PdfPreviewScreen(
             imagePaths: args.imagePaths,
@@ -245,7 +246,9 @@ GoRouter router(Ref ref) {
         builder: (_, state) {
           final params = parseUploadArgs(state.extra);
           if (params == null) {
-            return const Scaffold(body: Center(child: Text('No upload data provided')));
+            return const Scaffold(
+              body: Center(child: Text('No upload data provided')),
+            );
           }
           return UploadScreen(params: params);
         },
@@ -254,7 +257,10 @@ GoRouter router(Ref ref) {
         path: '/documents/:id',
         builder: (_, state) {
           final id = int.tryParse(state.pathParameters['id'] ?? '');
-          if (id == null) return const Scaffold(body: Center(child: Text('Invalid document ID')));
+          if (id == null)
+            return const Scaffold(
+              body: Center(child: Text('Invalid document ID')),
+            );
           return DocumentDetailScreen(documentId: id);
         },
         routes: [
@@ -262,7 +268,10 @@ GoRouter router(Ref ref) {
             path: 'preview',
             builder: (_, state) {
               final id = int.tryParse(state.pathParameters['id'] ?? '');
-              if (id == null) return const Scaffold(body: Center(child: Text('Invalid document ID')));
+              if (id == null)
+                return const Scaffold(
+                  body: Center(child: Text('Invalid document ID')),
+                );
               return DocumentPreviewScreen(documentId: id);
             },
           ),
@@ -270,8 +279,12 @@ GoRouter router(Ref ref) {
             path: 'chat',
             builder: (_, state) {
               final id = int.tryParse(state.pathParameters['id'] ?? '');
-              if (id == null) return const Scaffold(body: Center(child: Text('Invalid document ID')));
-              final title = state.uri.queryParameters['title'] ?? 'Document $id';
+              if (id == null)
+                return const Scaffold(
+                  body: Center(child: Text('Invalid document ID')),
+                );
+              final title =
+                  state.uri.queryParameters['title'] ?? 'Document $id';
               return ChatScreen(documentId: id, documentTitle: title);
             },
           ),
@@ -281,7 +294,10 @@ GoRouter router(Ref ref) {
         builder: (context, state, child) => _AppShell(child: child),
         routes: [
           GoRoute(path: '/inbox', builder: (_, __) => const InboxScreen()),
-          GoRoute(path: '/documents', builder: (_, __) => const DocumentsScreen()),
+          GoRoute(
+            path: '/documents',
+            builder: (_, __) => const DocumentsScreen(),
+          ),
           GoRoute(path: '/scan', builder: (_, __) => const ScannerScreen()),
           GoRoute(path: '/chat', builder: (_, __) => const ChatScreen()),
         ],
@@ -397,6 +413,7 @@ class _AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).matchedLocation;
     final isOnline = ref.watch(connectivityNotifierProvider);
+    final hasChat = ref.watch(chatAvailableProvider);
 
     // Keep upload queue service alive
     ref.watch(uploadQueueServiceProvider);
@@ -413,12 +430,14 @@ class _AppShell extends ConsumerWidget {
               backgroundColor: Theme.of(context).colorScheme.errorContainer,
               actions: const [SizedBox.shrink()],
               padding: const EdgeInsets.symmetric(
-                  horizontal: Spacing.lg, vertical: Spacing.sm),
+                horizontal: Spacing.lg,
+                vertical: Spacing.sm,
+              ),
             ),
           Expanded(child: child),
         ],
       ),
-      bottomNavigationBar: _ShellNavBar(location: location),
+      bottomNavigationBar: _ShellNavBar(location: location, hasChat: hasChat),
     );
   }
 }
@@ -427,9 +446,10 @@ class _AppShell extends ConsumerWidget {
 /// raised circular accent-filled Scan button in the center — the single
 /// visually-elevated primary action of the shell.
 class _ShellNavBar extends StatelessWidget {
-  const _ShellNavBar({required this.location});
+  const _ShellNavBar({required this.location, required this.hasChat});
 
   final String location;
+  final bool hasChat;
 
   @override
   Widget build(BuildContext context) {
@@ -489,13 +509,14 @@ class _ShellNavBar extends StatelessWidget {
                   ),
                 ),
               ),
-              _NavItem(
-                icon: Icons.chat_bubble_outline,
-                selectedIcon: Icons.chat_bubble,
-                label: 'Chat',
-                selected: location.startsWith('/chat'),
-                onTap: () => context.go('/chat'),
-              ),
+              if (hasChat)
+                _NavItem(
+                  icon: Icons.chat_bubble_outline,
+                  selectedIcon: Icons.chat_bubble,
+                  label: 'Chat',
+                  selected: location.startsWith('/chat'),
+                  onTap: () => context.go('/chat'),
+                ),
             ],
           ),
         ),
@@ -538,10 +559,9 @@ class _NavItem extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 label,
-                style: Theme.of(context)
-                    .textTheme
-                    .labelMedium
-                    ?.copyWith(color: color),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelMedium?.copyWith(color: color),
               ),
             ],
           ),
