@@ -8,6 +8,16 @@ import '../../core/design_tokens.dart';
 import 'processing/presets.dart';
 import 'providers/selected_preset_provider.dart';
 
+const _reviewableImageExtensions = {'png', 'jpg', 'jpeg', 'tiff', 'webp'};
+
+bool isReviewableImagePath(String path) {
+  final dot = path.lastIndexOf('.');
+  return dot != -1 &&
+      _reviewableImageExtensions.contains(
+        path.substring(dot + 1).toLowerCase(),
+      );
+}
+
 /// Camera-first capture hub: one large primary "Scan document" action, a preset
 /// strip that seeds the whole pipeline, and quiet secondary entry points.
 class ScannerScreen extends ConsumerWidget {
@@ -22,7 +32,11 @@ class ScannerScreen extends ConsumerWidget {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(
-              Spacing.xl, Spacing.lg, Spacing.xl, Spacing.xl),
+            Spacing.xl,
+            Spacing.lg,
+            Spacing.xl,
+            Spacing.xl,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -33,13 +47,13 @@ class ScannerScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Add a document',
-                            style: Theme.of(context).textTheme.headlineMedium),
+                        Text(
+                          'Add a document',
+                          style: Theme.of(context).textTheme.headlineMedium,
+                        ),
                         Text(
                           'Capture, confirm, upload',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
+                          style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(color: tokens.inkSoft),
                         ),
                       ],
@@ -60,9 +74,9 @@ class ScannerScreen extends ConsumerWidget {
               Text(
                 'ENHANCEMENT',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: tokens.inkSoft,
-                      letterSpacing: 1.2,
-                    ),
+                  color: tokens.inkSoft,
+                  letterSpacing: 1.2,
+                ),
               ),
               const SizedBox(height: Spacing.sm),
               SizedBox(
@@ -70,7 +84,8 @@ class ScannerScreen extends ConsumerWidget {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: ProcessingPreset.values.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: Spacing.sm),
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(width: Spacing.sm),
                   itemBuilder: (_, i) {
                     final preset = ProcessingPreset.values[i];
                     return ChoiceChip(
@@ -81,14 +96,16 @@ class ScannerScreen extends ConsumerWidget {
                           .read(selectedPresetProvider.notifier)
                           .select(preset)
                           .catchError((Object _) {
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("Couldn't save that enhancement "
-                                'preset. Please try again.'),
-                          ),
-                        );
-                      }),
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  "Couldn't save that enhancement "
+                                  'preset. Please try again.',
+                                ),
+                              ),
+                            );
+                          }),
                     );
                   },
                 ),
@@ -131,7 +148,10 @@ class ScannerScreen extends ConsumerWidget {
   Future<void> _startScan(BuildContext context) async {
     try {
       final images = await DocumentScanner.getPictures(
-        isGalleryImportAllowed: true,
+        // The Android ML Kit scanner can jump directly to the photo picker
+        // when gallery import is enabled. Keep the primary action camera-only;
+        // photo imports use the separate Upload file action and rejoin review.
+        isGalleryImportAllowed: false,
       );
       if (images != null && images.isNotEmpty && context.mounted) {
         context.push('/scan/review', extra: images);
@@ -153,7 +173,9 @@ class ScannerScreen extends ConsumerWidget {
       if (images != null && images.isNotEmpty && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Scanned ${images.length} ${images.length == 1 ? 'page' : 'pages'}'),
+            content: Text(
+              'Scanned ${images.length} ${images.length == 1 ? 'page' : 'pages'}',
+            ),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -173,18 +195,39 @@ class ScannerScreen extends ConsumerWidget {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg', 'tiff', 'webp'],
+        allowMultiple: true,
       );
-      if (result != null && result.files.single.path != null && context.mounted) {
-        final file = result.files.single;
-        context.push('/scan/upload', extra: {
-          'filePath': file.path!,
-          'filename': file.name,
-        });
+      final files = result?.files.where((file) => file.path != null).toList();
+      if (files == null || files.isEmpty || !context.mounted) return;
+
+      if (files.every((file) => isReviewableImagePath(file.path!))) {
+        context.push(
+          '/scan/review',
+          extra: files.map((file) => file.path!).toList(),
+        );
+        return;
       }
+
+      if (files.length == 1) {
+        final file = files.single;
+        context.push(
+          '/scan/upload',
+          extra: {'filePath': file.path!, 'filename': file.name},
+        );
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Select one PDF or only image files at a time.'),
+        ),
+      );
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('File picker error: ${friendlyApiMessage(e)}')),
+          SnackBar(
+            content: Text('File picker error: ${friendlyApiMessage(e)}'),
+          ),
         );
       }
     }
@@ -213,25 +256,29 @@ class _ScanHero extends StatelessWidget {
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(
-                horizontal: Spacing.xl, vertical: Spacing.xxl),
+              horizontal: Spacing.xl,
+              vertical: Spacing.xxl,
+            ),
             child: Column(
               children: [
-                Icon(Icons.center_focus_strong_outlined,
-                    size: 56, color: onFill),
+                Icon(
+                  Icons.center_focus_strong_outlined,
+                  size: 56,
+                  color: onFill,
+                ),
                 const SizedBox(height: Spacing.md),
                 Text(
                   'Scan document',
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineSmall
-                      ?.copyWith(color: onFill),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.headlineSmall?.copyWith(color: onFill),
                 ),
                 const SizedBox(height: Spacing.xs),
                 Text(
-                  'Camera or gallery import',
+                  'Camera scan',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: onFill.withValues(alpha: 0.8),
-                      ),
+                    color: onFill.withValues(alpha: 0.8),
+                  ),
                 ),
               ],
             ),
