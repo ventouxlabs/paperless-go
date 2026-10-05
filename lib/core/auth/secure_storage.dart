@@ -34,6 +34,12 @@ class SecureStorageService {
   Future<String?> getAiChatUrl() =>
       _storage.read(key: StorageKeys.aiChatUrl);
 
+  Future<void> saveAiChatBackend(String backend) =>
+      _storage.write(key: StorageKeys.aiChatBackend, value: backend);
+
+  Future<String?> getAiChatBackend() =>
+      _storage.read(key: StorageKeys.aiChatBackend);
+
   Future<void> saveAiChatUsername(String username) =>
       _storage.write(key: StorageKeys.aiChatUsername, value: username);
 

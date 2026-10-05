@@ -14,7 +14,6 @@ import '../../core/api/api_providers.dart';
 import '../../core/api/thumbnail_cache_bust.dart';
 import '../../shared/widgets/destructive_button_style.dart';
 import '../../shared/widgets/metadata_dropdown.dart';
-import '../../core/auth/auth_provider.dart';
 import '../../core/models/custom_field.dart';
 import '../../core/models/document.dart';
 import '../../core/models/storage_path.dart';
@@ -33,6 +32,7 @@ import 'documents_notifier.dart';
 import 'metadata_patch.dart';
 import '../inbox/inbox_notifier.dart';
 import '../../core/api/api_error_mapper.dart';
+import '../ai_chat/native_chat_providers.dart';
 
 class DocumentDetailScreen extends ConsumerStatefulWidget {
   final int documentId;
@@ -164,7 +164,7 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
         // rather than a flat dropdown. Preview already has its own large,
         // obvious tap target (the thumbnail below), so it doesn't need a
         // second app-bar affordance.
-        final hasChat = (ref.watch(aiChatUrlProvider) ?? '').isNotEmpty;
+        final hasChat = ref.watch(chatAvailableProvider);
         return Scaffold(
           appBar: AppBar(
             title: Text(doc.title, maxLines: 1, overflow: TextOverflow.ellipsis),

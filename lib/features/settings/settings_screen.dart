@@ -12,6 +12,7 @@ import '../../core/settings/start_screen.dart';
 import '../../core/services/export_destination_providers.dart';
 import '../../core/services/export_destination_service.dart';
 import '../ai_chat/chat_notifier.dart';
+import '../ai_chat/native_chat_providers.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -28,6 +29,8 @@ class SettingsScreen extends ConsumerWidget {
     final profilesState = ref.watch(serverProfilesNotifierProvider);
     final aiUsername = ref.watch(aiChatUsernameProvider);
     final downloadsDestination = ref.watch(downloadsDestinationProvider);
+    final chatBackend = ref.watch(chatBackendProvider);
+    final chatPreference = ref.watch(chatBackendPreferenceProvider);
 
     return Scaffold(
       backgroundColor: tokens.paper,
@@ -38,6 +41,13 @@ class SettingsScreen extends ConsumerWidget {
           _SettingsSection(
             title: 'Account',
             children: [
+              ListTile(
+                leading: Icon(Icons.tune_outlined, color: tokens.inkSoft),
+                title: const Text('Chat backend'),
+                subtitle: Text(_chatBackendPreferenceLabel(chatPreference)),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _chooseChatBackend(context, ref, chatPreference),
+              ),
               ListTile(
                 leading: Icon(Icons.dns_outlined, color: tokens.inkSoft),
                 title: const Text('Server'),
@@ -56,14 +66,18 @@ class SettingsScreen extends ConsumerWidget {
                       color: isActive ? tokens.accentEmphasis : tokens.inkSoft,
                     ),
                     title: Text(
-                        profile.name.isEmpty ? profile.serverUrl : profile.name),
-                    subtitle: Text(profile.serverUrl,
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                      profile.name.isEmpty ? profile.serverUrl : profile.name,
+                    ),
+                    subtitle: Text(
+                      profile.serverUrl,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     onTap: isActive
                         ? null
                         : () => ref
-                            .read(serverProfilesNotifierProvider.notifier)
-                            .switchToProfile(idx),
+                              .read(serverProfilesNotifierProvider.notifier)
+                              .switchToProfile(idx),
                     trailing: IconButton(
                       icon: const Icon(Icons.close, size: 18),
                       tooltip: 'Remove profile',
@@ -90,7 +104,11 @@ class SettingsScreen extends ConsumerWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(
-                    Spacing.lg, Spacing.md, Spacing.lg, Spacing.md),
+                  Spacing.lg,
+                  Spacing.md,
+                  Spacing.lg,
+                  Spacing.md,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -98,8 +116,10 @@ class SettingsScreen extends ConsumerWidget {
                       children: [
                         Icon(Icons.palette_outlined, color: tokens.inkSoft),
                         const SizedBox(width: Spacing.lg),
-                        Text('Theme',
-                            style: Theme.of(context).textTheme.bodyLarge),
+                        Text(
+                          'Theme',
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
                       ],
                     ),
                     const SizedBox(height: Spacing.md),
@@ -132,7 +152,11 @@ class SettingsScreen extends ConsumerWidget {
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(
-                    Spacing.lg, Spacing.md, Spacing.lg, Spacing.md),
+                  Spacing.lg,
+                  Spacing.md,
+                  Spacing.lg,
+                  Spacing.md,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -140,8 +164,10 @@ class SettingsScreen extends ConsumerWidget {
                       children: [
                         Icon(Icons.home_outlined, color: tokens.inkSoft),
                         const SizedBox(width: Spacing.lg),
-                        Text('Start screen',
-                            style: Theme.of(context).textTheme.bodyLarge),
+                        Text(
+                          'Start screen',
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
                       ],
                     ),
                     const SizedBox(height: Spacing.md),
@@ -196,9 +222,21 @@ class SettingsScreen extends ConsumerWidget {
           _SettingsSection(
             title: 'AI Chat',
             children: [
+              if (chatBackend == ChatBackend.native)
+                const ListTile(
+                  leading: Icon(Icons.smart_toy_outlined),
+                  title: Text('Paperless AI chat is available'),
+                  subtitle: Text(
+                    'Your connected Paperless server provides AI chat. No Paperless-AI URL is required.',
+                  ),
+                ),
               ListTile(
                 leading: Icon(Icons.smart_toy_outlined, color: tokens.inkSoft),
-                title: const Text('Paperless-AI URL'),
+                title: Text(
+                  chatBackend == ChatBackend.native
+                      ? 'Paperless-AI URL (optional fallback)'
+                      : 'Paperless-AI URL',
+                ),
                 subtitle: Text(
                   aiUrl?.isNotEmpty == true ? aiUrl! : 'Not configured',
                   style: aiUrl?.isNotEmpty == true
@@ -225,7 +263,9 @@ class SettingsScreen extends ConsumerWidget {
               ListTile(
                 leading: Icon(Icons.wifi_tethering, color: tokens.inkSoft),
                 title: const Text('Verify Connection'),
-                subtitle: const Text('Check server reachability and credentials'),
+                subtitle: const Text(
+                  'Check server reachability and credentials',
+                ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => _verifyAiConnection(context, ref),
               ),
@@ -283,8 +323,9 @@ class SettingsScreen extends ConsumerWidget {
                   return ListTile(
                     leading: Icon(Icons.info_outline, color: tokens.inkSoft),
                     title: const Text('Paperless Go'),
-                    subtitle:
-                        Text('v$version${build.isNotEmpty ? '+$build' : ''}'),
+                    subtitle: Text(
+                      'v$version${build.isNotEmpty ? '+$build' : ''}',
+                    ),
                   );
                 },
               ),
@@ -348,7 +389,8 @@ class SettingsScreen extends ConsumerWidget {
     ).then((name) {
       if (name != null && name is String && name.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          ref.read(serverProfilesNotifierProvider.notifier)
+          ref
+              .read(serverProfilesNotifierProvider.notifier)
               .addCurrentAsProfile(name);
         });
       }
@@ -356,7 +398,10 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _toggleBiometric(
-      BuildContext context, WidgetRef ref, bool enabled) async {
+    BuildContext context,
+    WidgetRef ref,
+    bool enabled,
+  ) async {
     if (enabled) {
       final biometricService = BiometricService();
       final isAvailable = await biometricService.isAvailable();
@@ -364,7 +409,10 @@ class SettingsScreen extends ConsumerWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-                content: Text('Biometric authentication is not available on this device')),
+              content: Text(
+                'Biometric authentication is not available on this device',
+              ),
+            ),
           );
         }
         return;
@@ -379,7 +427,10 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _setStartScreen(
-      BuildContext context, WidgetRef ref, StartScreen screen) async {
+    BuildContext context,
+    WidgetRef ref,
+    StartScreen screen,
+  ) async {
     final saved = await ref.read(startScreenProvider.notifier).set(screen);
     if (!saved && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -389,7 +440,9 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _chooseDownloadsFolder(
-      BuildContext context, WidgetRef ref) async {
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final current = ref.read(downloadsDestinationProvider).valueOrNull;
     if (current != null && current.status != DestinationStatus.unset) {
       final action = await showModalBottomSheet<String>(
@@ -424,9 +477,9 @@ class SettingsScreen extends ConsumerWidget {
       await ref.read(downloadsDestinationProvider.notifier).choose();
     } on ExportSaveException catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -444,7 +497,8 @@ class SettingsScreen extends ConsumerWidget {
     if (username.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Set your Paperless-AI credentials first.')),
+          content: Text('Set your Paperless-AI credentials first.'),
+        ),
       );
       return;
     }
@@ -483,10 +537,61 @@ class SettingsScreen extends ConsumerWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(error ?? 'Paperless-AI connection verified'),
-        backgroundColor:
-            error != null ? Theme.of(context).colorScheme.error : null,
+        backgroundColor: error != null
+            ? Theme.of(context).colorScheme.error
+            : null,
       ),
     );
+  }
+
+  String _chatBackendPreferenceLabel(ChatBackendPreference preference) =>
+      switch (preference) {
+        ChatBackendPreference.loading => 'Loading saved preference…',
+        ChatBackendPreference.auto => 'Auto (prefer Paperless native AI)',
+        ChatBackendPreference.native => 'Paperless native AI only',
+        ChatBackendPreference.paperlessAi => 'Paperless-AI only',
+      };
+
+  Future<void> _chooseChatBackend(
+    BuildContext context,
+    WidgetRef ref,
+    ChatBackendPreference selected,
+  ) async {
+    final preference = await showModalBottomSheet<ChatBackendPreference>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final preference in ChatBackendPreference.values.where(
+              (value) => value != ChatBackendPreference.loading,
+            ))
+              ListTile(
+                title: Text(_chatBackendPreferenceLabel(preference)),
+                trailing: preference == selected
+                    ? const Icon(Icons.check)
+                    : null,
+                onTap: () => Navigator.pop(context, preference),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (preference != null) {
+      try {
+        await ref
+            .read(chatBackendPreferenceProvider.notifier)
+            .select(preference);
+      } catch (_) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not save chat backend preference.'),
+            ),
+          );
+        }
+      }
+    }
   }
 
   void _editAiCredentials(BuildContext context, WidgetRef ref) {
@@ -544,8 +649,8 @@ class SettingsScreen extends ConsumerWidget {
                 Text(
                   verifyError!,
                   style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(ctx).colorScheme.error,
-                      ),
+                    color: Theme.of(ctx).colorScheme.error,
+                  ),
                 ),
               ],
             ],
@@ -563,8 +668,9 @@ class SettingsScreen extends ConsumerWidget {
                       final password = passwordController.text;
                       final service = ref.read(chatServiceProvider);
                       if (service == null) {
-                        setState(() => verifyError =
-                            'Set the Paperless-AI URL first.');
+                        setState(
+                          () => verifyError = 'Set the Paperless-AI URL first.',
+                        );
                         return;
                       }
                       setState(() {
@@ -581,9 +687,10 @@ class SettingsScreen extends ConsumerWidget {
                         if (!ctx.mounted) return;
                         setState(() {
                           verifying = false;
-                          verifyError = e
-                              .toString()
-                              .replaceFirst('Exception: ', '');
+                          verifyError = e.toString().replaceFirst(
+                            'Exception: ',
+                            '',
+                          );
                         });
                       }
                     },
@@ -682,20 +789,20 @@ class _DownloadsLocationSubtitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return switch (destination) {
       AsyncData(:final value) => switch (value.status) {
-          DestinationStatus.ready => Text(value.displayName),
-          DestinationStatus.unset => Text(
-              'Ask each time',
-              style: TextStyle(color: tokens.inkSoft),
-            ),
-          DestinationStatus.unavailable => Text(
-              '${value.displayName} — no longer available, tap to choose again',
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-        },
-      AsyncError() => Text(
-          'Could not check folder access',
+        DestinationStatus.ready => Text(value.displayName),
+        DestinationStatus.unset => Text(
+          'Ask each time',
+          style: TextStyle(color: tokens.inkSoft),
+        ),
+        DestinationStatus.unavailable => Text(
+          '${value.displayName} — no longer available, tap to choose again',
           style: TextStyle(color: Theme.of(context).colorScheme.error),
         ),
+      },
+      AsyncError() => Text(
+        'Could not check folder access',
+        style: TextStyle(color: Theme.of(context).colorScheme.error),
+      ),
       _ => Text('Checking…', style: TextStyle(color: tokens.inkSoft)),
     };
   }
@@ -714,21 +821,24 @@ class _SettingsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = AppTokens.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-          Spacing.lg, Spacing.lg, Spacing.lg, 0),
+      padding: const EdgeInsets.fromLTRB(Spacing.lg, Spacing.lg, Spacing.lg, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(
-                Spacing.xs, 0, Spacing.xs, Spacing.sm),
+              Spacing.xs,
+              0,
+              Spacing.xs,
+              Spacing.sm,
+            ),
             child: Semantics(
               header: true,
               child: Text(
                 title,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: tokens.inkSoft,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(color: tokens.inkSoft),
               ),
             ),
           ),
@@ -775,30 +885,29 @@ class _UploadQueueTile extends ConsumerWidget {
     return ListTile(
       leading: Icon(Icons.upload_file_outlined, color: tokens.inkSoft),
       title: const Text('Upload queue'),
-      subtitle: Text(
-        switch ((waiting, stuck)) {
-          (0, _) => 'Nothing waiting to upload',
-          (_, 0) => '$waiting waiting to upload',
-          (_, final s) => '$waiting waiting · $s need attention',
-        },
-      ),
+      subtitle: Text(switch ((waiting, stuck)) {
+        (0, _) => 'Nothing waiting to upload',
+        (_, 0) => '$waiting waiting to upload',
+        (_, final s) => '$waiting waiting · $s need attention',
+      }),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (stuck > 0)
             Container(
               padding: const EdgeInsets.symmetric(
-                  horizontal: Spacing.sm, vertical: 2),
+                horizontal: Spacing.sm,
+                vertical: 2,
+              ),
               decoration: BoxDecoration(
                 color: colorScheme.error,
                 borderRadius: BorderRadius.circular(Radii.pill),
               ),
               child: Text(
                 '$stuck',
-                style: Theme.of(context)
-                    .textTheme
-                    .labelSmall
-                    ?.copyWith(color: colorScheme.onError),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelSmall?.copyWith(color: colorScheme.onError),
               ),
             ),
           const Icon(Icons.chevron_right),

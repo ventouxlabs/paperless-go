@@ -6,6 +6,8 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../core/auth/auth_provider.dart';
 import 'chat_service.dart';
+import 'native_chat_providers.dart';
+import 'native_chat_service.dart';
 
 part 'chat_notifier.g.dart';
 
@@ -16,18 +18,20 @@ ChatService? chatService(Ref ref) {
     return null;
   }
   final normalizedUrl = aiUrl.endsWith('/') ? aiUrl : '$aiUrl/';
-  final dio = Dio(BaseOptions(
-    baseUrl: normalizedUrl,
-    connectTimeout: const Duration(seconds: 15),
-    receiveTimeout: const Duration(seconds: 120),
-    followRedirects: true,
-    maxRedirects: 5,
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-    },
-    validateStatus: (status) => status != null && status < 500,
-  ));
+  final dio = Dio(
+    BaseOptions(
+      baseUrl: normalizedUrl,
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 120),
+      followRedirects: true,
+      maxRedirects: 5,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      validateStatus: (status) => status != null && status < 500,
+    ),
+  );
   return ChatService(dio);
 }
 
@@ -76,13 +80,26 @@ class ChatNotifier extends _$ChatNotifier {
   bool _loggedIn = false;
   bool _disposed = false;
   bool _sending = false;
+  CancelToken? _nativeCancelToken;
+  int _requestEpoch = 0;
+  int _sendEpoch = 0;
 
   @override
   ChatState build() {
-    _loggedIn = false;
-    _disposed = false;
-    _sending = false;
-    ref.onDispose(() => _disposed = true);
+    ref.listen(authStateProvider, (previous, next) {
+      final wasAuthenticated = previous?.valueOrNull?.isAuthenticated ?? false;
+      final isAuthenticated = next.valueOrNull?.isAuthenticated ?? false;
+      if (wasAuthenticated != isAuthenticated ||
+          previous?.valueOrNull?.serverUrl != next.valueOrNull?.serverUrl) {
+        _cancelActiveNativeRequest();
+        _loggedIn = false;
+        state = const ChatState();
+      }
+    });
+    ref.onDispose(() {
+      _disposed = true;
+      _nativeCancelToken?.cancel();
+    });
     return const ChatState();
   }
 
@@ -90,7 +107,9 @@ class ChatNotifier extends _$ChatNotifier {
   ChatService _getService() {
     final service = ref.read(chatServiceProvider);
     if (service == null) {
-      throw Exception('Paperless-AI URL not configured. Go to Settings to set it up.');
+      throw Exception(
+        'Paperless-AI URL not configured. Go to Settings to set it up.',
+      );
     }
     return service;
   }
@@ -103,8 +122,10 @@ class ChatNotifier extends _$ChatNotifier {
     final storage = ref.read(secureStorageProvider);
     final username = await storage.getAiChatUsername();
     final password = await storage.getAiChatPassword();
-    if (username == null || username.isEmpty ||
-        password == null || password.isEmpty) {
+    if (username == null ||
+        username.isEmpty ||
+        password == null ||
+        password.isEmpty) {
       // No credentials configured — proceed without auth (may work on internal networks)
       return;
     }
@@ -117,6 +138,7 @@ class ChatNotifier extends _$ChatNotifier {
   /// Reset to RAG mode (called when Chat tab opens without a documentId).
   void resetToRagMode() {
     if (state.mode == ChatMode.document) {
+      _cancelActiveNativeRequest();
       _loggedIn = false;
       state = const ChatState();
     }
@@ -128,12 +150,17 @@ class ChatNotifier extends _$ChatNotifier {
       return;
     }
 
+    _cancelActiveNativeRequest();
     _loggedIn = false;
     state = ChatState(
       mode: ChatMode.document,
       documentId: documentId,
       documentTitle: title,
     );
+
+    // Native chat has no session to initialize. Its document context is sent
+    // with each single-turn request.
+    if (_usesNativeChat) return;
 
     try {
       await _ensureLoggedIn();
@@ -147,16 +174,126 @@ class ChatNotifier extends _$ChatNotifier {
   Future<void> sendMessage(String text) async {
     if (_sending) return;
     _sending = true;
+    final sendEpoch = ++_sendEpoch;
     try {
+      if (_usesNativeChat) {
+        await _sendNativeMessage(text);
+        return;
+      }
       if (state.mode == ChatMode.document) {
         await _sendDocumentMessage(text);
       } else {
         await _sendRagMessage(text);
       }
     } finally {
-      _sending = false;
+      if (sendEpoch == _sendEpoch) _sending = false;
     }
   }
+
+  bool get _usesNativeChat => ref.read(nativeChatAvailableProvider);
+
+  /// Stops an active native generation. Paperless-AI's existing endpoints do
+  /// not expose a cancellable request, so this intentionally leaves that path
+  /// unchanged.
+  void stop() {
+    final token = _nativeCancelToken;
+    if (token == null || token.isCancelled) return;
+    _cancelActiveNativeRequest();
+  }
+
+  void _cancelActiveNativeRequest() {
+    _requestEpoch++;
+    _sendEpoch++;
+    _sending = false;
+    final token = _nativeCancelToken;
+    _nativeCancelToken = null;
+    if (token != null && !token.isCancelled) {
+      token.cancel('Chat stopped by user');
+    }
+    if (state.isLoading) state = state.copyWith(isLoading: false);
+  }
+
+  Future<void> _sendNativeMessage(String text) async {
+    final userMessage = ChatMessage(role: 'user', content: text);
+    final placeholder = ChatMessage(role: 'assistant', content: '');
+    final cancelToken = CancelToken();
+    _nativeCancelToken = cancelToken;
+    final requestEpoch = ++_requestEpoch;
+
+    state = state.copyWith(
+      messages: [...state.messages, userMessage, placeholder],
+      isLoading: true,
+      error: null,
+    );
+
+    try {
+      final service = ref.read(nativeChatServiceProvider);
+      // Native Paperless-ngx chat is explicitly single-turn: do not turn the
+      // app's rendered history into hidden prompt context.
+      final stream = service.send(
+        text,
+        documentId: state.mode == ChatMode.document ? state.documentId : null,
+        cancelToken: cancelToken,
+      );
+      await for (final update in stream) {
+        if (_disposed ||
+            cancelToken.isCancelled ||
+            requestEpoch != _requestEpoch ||
+            !identical(_nativeCancelToken, cancelToken)) {
+          break;
+        }
+        final messages = List<ChatMessage>.from(state.messages);
+        if (messages.isEmpty || messages.last.role != 'assistant') break;
+        messages[messages.length - 1] = messages.last.copyWith(
+          content: update.answer,
+          references: update.references,
+        );
+        state = state.copyWith(
+          messages: messages,
+          error: update.softError == null
+              ? null
+              : _nativeSoftErrorText(update.softError!),
+        );
+      }
+      if (!_disposed &&
+          !cancelToken.isCancelled &&
+          requestEpoch == _requestEpoch &&
+          identical(_nativeCancelToken, cancelToken)) {
+        state = state.copyWith(isLoading: false);
+      }
+    } catch (e) {
+      if (_disposed ||
+          cancelToken.isCancelled ||
+          requestEpoch != _requestEpoch ||
+          !identical(_nativeCancelToken, cancelToken)) {
+        return;
+      }
+      // Remove an empty streaming placeholder, but retain any partial answer
+      // that was useful before an interrupted connection.
+      final messages = List<ChatMessage>.from(state.messages);
+      if (messages.isNotEmpty &&
+          messages.last.role == 'assistant' &&
+          messages.last.content.isEmpty) {
+        messages.removeLast();
+      }
+      state = state.copyWith(
+        messages: messages,
+        isLoading: false,
+        error: e.toString(),
+      );
+    } finally {
+      if (identical(_nativeCancelToken, cancelToken)) {
+        _nativeCancelToken = null;
+      }
+    }
+  }
+
+  String _nativeSoftErrorText(NativeChatSoftError error) => switch (error) {
+    NativeChatSoftError.generationFailed =>
+      'Sorry, something went wrong while generating a response.',
+    NativeChatSoftError.noContent =>
+      "Sorry, I couldn't find any content to answer your question.",
+  };
 
   Future<void> _sendRagMessage(String text) async {
     final userMessage = ChatMessage(role: 'user', content: text);
@@ -177,10 +314,7 @@ class ChatNotifier extends _$ChatNotifier {
       );
     } catch (e) {
       _loggedIn = false; // Allow re-authentication on next attempt
-      state = state.copyWith(
-        isLoading: false,
-        error: e.toString(),
-      );
+      state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
@@ -205,7 +339,9 @@ class ChatNotifier extends _$ChatNotifier {
       await for (final accumulated in stream) {
         if (_disposed) break;
         final messages = List<ChatMessage>.from(state.messages);
-        messages[messages.length - 1] = messages.last.copyWith(content: accumulated);
+        messages[messages.length - 1] = messages.last.copyWith(
+          content: accumulated,
+        );
         state = state.copyWith(messages: messages);
       }
 
@@ -213,7 +349,9 @@ class ChatNotifier extends _$ChatNotifier {
     } catch (e) {
       // Remove empty placeholder if streaming failed before any content arrived
       final messages = List<ChatMessage>.from(state.messages);
-      if (messages.isNotEmpty && messages.last.role == 'assistant' && messages.last.content.isEmpty) {
+      if (messages.isNotEmpty &&
+          messages.last.role == 'assistant' &&
+          messages.last.content.isEmpty) {
         messages.removeLast();
       }
       _loggedIn = false; // Allow re-authentication on next attempt
@@ -226,6 +364,7 @@ class ChatNotifier extends _$ChatNotifier {
   }
 
   void clearHistory() {
+    _cancelActiveNativeRequest();
     _loggedIn = false;
     if (state.mode == ChatMode.document) {
       state = ChatState(

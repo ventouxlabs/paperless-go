@@ -5,11 +5,11 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../core/auth/auth_provider.dart';
 import '../../core/design_tokens.dart';
 import '../../shared/widgets/stamp_chip.dart';
 import 'chat_notifier.dart';
 import 'chat_service.dart';
+import 'native_chat_providers.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final int? documentId;
@@ -41,15 +41,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget build(BuildContext context) {
     final tokens = AppTokens.of(context);
     final chatState = ref.watch(chatNotifierProvider);
-    final aiUrl = ref.watch(aiChatUrlProvider);
-    final isConfigured = aiUrl != null && aiUrl.isNotEmpty;
+    final isConfigured = ref.watch(chatAvailableProvider);
+    final usesNativeChat = ref.watch(nativeChatAvailableProvider);
 
     // Mode initialization
     if (!_initialized) {
       _initialized = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_isDocumentMode) {
-          ref.read(chatNotifierProvider.notifier).initDocumentMode(
+          ref
+              .read(chatNotifierProvider.notifier)
+              .initDocumentMode(
                 widget.documentId!,
                 widget.documentTitle ?? 'Document',
               );
@@ -64,9 +66,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     ref.listen(chatNotifierProvider, (prev, next) {
       if (next.error != null && prev?.error != next.error) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(next.error!)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(next.error!)));
         }
         ref.read(chatNotifierProvider.notifier).dismissError();
       }
@@ -143,16 +145,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               children: [
                 Expanded(
                   child: chatState.messages.isEmpty
-                      ? _buildEmptyChat(context)
+                      ? _buildEmptyChat(context, usesNativeChat)
                       : ListView.builder(
                           controller: _scrollController,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: Spacing.md, vertical: Spacing.sm),
-                          itemCount: chatState.messages.length +
+                            horizontal: Spacing.md,
+                            vertical: Spacing.sm,
+                          ),
+                          itemCount:
+                              chatState.messages.length +
                               (chatState.isLoading &&
                                       (chatState.mode == ChatMode.rag ||
                                           chatState.messages.isEmpty ||
-                                          chatState.messages.last.content.isEmpty)
+                                          chatState
+                                              .messages
+                                              .last
+                                              .content
+                                              .isEmpty)
                                   ? 1
                                   : 0),
                           itemBuilder: (_, i) {
@@ -161,7 +170,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             }
                             final message = chatState.messages[i];
                             // Skip empty placeholder messages (streaming will fill them)
-                            if (message.role == 'assistant' && message.content.isEmpty) {
+                            if (message.role == 'assistant' &&
+                                message.content.isEmpty) {
                               return _buildTypingIndicator(context);
                             }
                             return _MessageBubble(
@@ -172,7 +182,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           },
                         ),
                 ),
-                _buildInputBar(context, chatState.isLoading),
+                _buildInputBar(context, chatState.isLoading, usesNativeChat),
               ],
             ),
     );
@@ -180,48 +190,57 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Widget _buildNotConfigured(BuildContext context) {
     final tokens = AppTokens.of(context);
-    return Center(
-      child: Padding(
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
         padding: const EdgeInsets.all(Spacing.xxl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.smart_toy_outlined, size: 64, color: tokens.inkSoft),
-            const SizedBox(height: Spacing.lg),
-            Text(
-              'AI Chat not configured',
-              style: Theme.of(context).textTheme.titleMedium,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.smart_toy_outlined, size: 64, color: tokens.inkSoft),
+                const SizedBox(height: Spacing.lg),
+                Text(
+                  'AI Chat not configured',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: Spacing.sm),
+                Text(
+                  'Enable AI on your Paperless server, or set up a Paperless-AI URL in settings to start chatting about your documents.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: tokens.inkSoft),
+                ),
+                const SizedBox(height: Spacing.xl),
+                FilledButton.icon(
+                  onPressed: () => context.push('/settings'),
+                  icon: const Icon(Icons.settings),
+                  label: const Text('Open Settings'),
+                ),
+              ],
             ),
-            const SizedBox(height: Spacing.sm),
-            Text(
-              'Set up your Paperless-AI URL in settings to start chatting about your documents.',
-              textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: tokens.inkSoft),
-            ),
-            const SizedBox(height: Spacing.xl),
-            FilledButton.icon(
-              onPressed: () => context.push('/settings'),
-              icon: const Icon(Icons.settings),
-              label: const Text('Open Settings'),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildEmptyChat(BuildContext context) {
+  Widget _buildEmptyChat(BuildContext context, bool usesNativeChat) {
     final tokens = AppTokens.of(context);
-    final icon = _isDocumentMode ? Icons.chat_bubble_outline : Icons.auto_awesome;
+    final icon = _isDocumentMode
+        ? Icons.chat_bubble_outline
+        : Icons.auto_awesome;
     final title = _isDocumentMode
         ? 'Ask questions about this document'
         : 'Ask about your documents';
     final subtitle = _isDocumentMode
         ? 'Chat with AI to understand, summarize, and explore this document.'
         : 'Chat with AI to search, summarize, and understand your documents.';
+    final guidance = usesNativeChat
+        ? 'Each question is answered independently, so include any context you need.'
+        : null;
 
     final suggestions = _isDocumentMode
         ? [
@@ -235,37 +254,51 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             'Find contracts expiring soon',
           ];
 
-    return Center(
-      child: Padding(
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
         padding: const EdgeInsets.all(Spacing.xxl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 64, color: tokens.accentEmphasis),
-            const SizedBox(height: Spacing.lg),
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: Spacing.sm),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: tokens.inkSoft),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 64, color: tokens.accentEmphasis),
+                const SizedBox(height: Spacing.lg),
+                Text(title, style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: Spacing.sm),
+                Text(
+                  subtitle,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: tokens.inkSoft),
+                ),
+                if (guidance != null) ...[
+                  const SizedBox(height: Spacing.sm),
+                  Text(
+                    guidance,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: tokens.inkSoft),
+                  ),
+                ],
+                const SizedBox(height: Spacing.xl),
+                Wrap(
+                  spacing: Spacing.sm,
+                  runSpacing: Spacing.xs,
+                  alignment: WrapAlignment.center,
+                  children: suggestions
+                      .map(
+                        (s) =>
+                            StampChip(label: s, onTap: () => _sendMessage(s)),
+                      )
+                      .toList(),
+                ),
+              ],
             ),
-            const SizedBox(height: Spacing.xl),
-            Wrap(
-              spacing: Spacing.sm,
-              runSpacing: Spacing.xs,
-              alignment: WrapAlignment.center,
-              children: suggestions
-                  .map((s) => StampChip(
-                        label: s,
-                        onTap: () => _sendMessage(s),
-                      ))
-                  .toList(),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -278,7 +311,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: Spacing.xs),
         padding: const EdgeInsets.symmetric(
-            horizontal: Spacing.lg, vertical: Spacing.md),
+          horizontal: Spacing.lg,
+          vertical: Spacing.md,
+        ),
         decoration: BoxDecoration(
           color: tokens.card,
           borderRadius: const BorderRadius.only(
@@ -303,10 +338,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             const SizedBox(width: Spacing.sm),
             Text(
               'Thinking...',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: tokens.inkSoft),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: tokens.inkSoft),
             ),
           ],
         ),
@@ -314,7 +348,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  Widget _buildInputBar(BuildContext context, bool isLoading) {
+  Widget _buildInputBar(
+    BuildContext context,
+    bool isLoading,
+    bool usesNativeChat,
+  ) {
     final tokens = AppTokens.of(context);
     final hintText = _isDocumentMode
         ? 'Ask about this document...'
@@ -358,7 +396,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   borderSide: BorderSide(color: tokens.line),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
-                    horizontal: Spacing.lg, vertical: Spacing.md),
+                  horizontal: Spacing.lg,
+                  vertical: Spacing.md,
+                ),
                 isDense: true,
               ),
               textInputAction: TextInputAction.send,
@@ -368,10 +408,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
           ),
           const SizedBox(width: Spacing.sm),
-          _SendButton(
-            enabled: !isLoading,
-            onTap: _submit,
-          ),
+          if (isLoading && usesNativeChat)
+            _StopButton(
+              onTap: () => ref.read(chatNotifierProvider.notifier).stop(),
+            )
+          else
+            _SendButton(enabled: !isLoading, onTap: _submit),
         ],
       ),
     );
@@ -380,6 +422,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void _submit() {
     final text = _inputController.text.trim();
     if (text.isEmpty) return;
+    if (ref.read(nativeChatAvailableProvider) &&
+        text.runes.length > nativeChatMaxQuestionCodePoints) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Native chat questions can be at most '
+            '$nativeChatMaxQuestionCodePoints characters.',
+          ),
+        ),
+      );
+      return;
+    }
     _sendMessage(text);
   }
 
@@ -407,20 +461,41 @@ class _SendButton extends StatelessWidget {
       button: true,
       label: 'Send',
       child: Material(
-        color: enabled
-            ? tokens.accentFill
-            : tokens.accentFill.withValues(alpha: 0.4),
+        color: tokens.accentFill,
         shape: const CircleBorder(),
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: enabled ? onTap : null,
           child: Padding(
             padding: const EdgeInsets.all(Spacing.md),
-            child: Icon(
-              Icons.arrow_upward,
-              size: 24,
-              color: onAccent,
-            ),
+            child: Icon(Icons.arrow_upward, size: 24, color: onAccent),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StopButton extends StatelessWidget {
+  const _StopButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = AppTokens.of(context);
+    return Semantics(
+      button: true,
+      label: 'Stop',
+      child: Material(
+        color: tokens.accentFill,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(Spacing.md),
+            child: Icon(Icons.stop, size: 24, color: tokens.onAccent),
           ),
         ),
       ),
@@ -432,10 +507,7 @@ class _MessageBubble extends StatelessWidget {
   final ChatMessage message;
   final ValueChanged<int> onDocumentTap;
 
-  const _MessageBubble({
-    required this.message,
-    required this.onDocumentTap,
-  });
+  const _MessageBubble({required this.message, required this.onDocumentTap});
 
   bool get isUser => message.role == 'user';
 
@@ -461,7 +533,9 @@ class _MessageBubble extends StatelessWidget {
         ),
         margin: const EdgeInsets.symmetric(vertical: Spacing.xs),
         padding: const EdgeInsets.symmetric(
-            horizontal: Spacing.lg, vertical: Spacing.md),
+          horizontal: Spacing.lg,
+          vertical: Spacing.md,
+        ),
         decoration: BoxDecoration(
           color: isUser ? tokens.accentSoft : tokens.card,
           borderRadius: radius,
@@ -506,47 +580,50 @@ class _MessageBubble extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 'Referenced documents:',
-                style: Theme.of(context)
-                    .textTheme
-                    .labelSmall
-                    ?.copyWith(color: tokens.inkSoft),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelSmall?.copyWith(color: tokens.inkSoft),
               ),
               const SizedBox(height: Spacing.xs),
-              ...message.references.map((ref) => InkWell(
-                    onTap: () => onDocumentTap(ref.id),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.description_outlined,
-                              size: 14, color: tokens.accentEmphasis),
-                          const SizedBox(width: Spacing.xs),
-                          Flexible(
-                            child: Text(
-                              ref.title,
-                              style: TextStyle(
-                                color: tokens.accentEmphasis,
-                                fontSize: 13,
-                                decoration: TextDecoration.underline,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+              ...message.references.map(
+                (ref) => InkWell(
+                  onTap: () => onDocumentTap(ref.id),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.description_outlined,
+                          size: 14,
+                          color: tokens.accentEmphasis,
+                        ),
+                        const SizedBox(width: Spacing.xs),
+                        Flexible(
+                          child: Text(
+                            ref.title,
+                            style: TextStyle(
+                              color: tokens.accentEmphasis,
+                              fontSize: 13,
+                              decoration: TextDecoration.underline,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  )),
+                  ),
+                ),
+              ),
             ],
             // Timestamp
             const SizedBox(height: Spacing.xs),
             Text(
               DateFormat.Hm().format(message.timestamp),
-              style: Theme.of(context)
-                  .textTheme
-                  .labelSmall
-                  ?.copyWith(color: tokens.inkSoft),
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: tokens.inkSoft),
             ),
           ],
         ),

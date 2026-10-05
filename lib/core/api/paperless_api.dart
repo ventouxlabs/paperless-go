@@ -379,6 +379,83 @@ class PaperlessApi {
 
   static const aiSuggestionsReceiveTimeout = Duration(seconds: 150);
 
+  /// Opens the raw Paperless-ngx native-AI chat response stream.
+  ///
+  /// The endpoint advertises `text/event-stream`, but its body is plain UTF-8
+  /// text rather than SSE.  Decoding and the metadata trailer deliberately
+  /// live in `NativeChatStreamParser`, so this method only owns the HTTP
+  /// contract.  A chat response can be quiet while the server retrieves and
+  /// generates, therefore its timeout is longer than the client's default.
+  ///
+  /// A question is one turn and must satisfy the server's 4,000 character
+  /// limit.  This POST is never retried: even an ambiguous network failure
+  /// must not send the user's question (and document context) twice.
+  Future<Stream<List<int>>> openNativeChat(
+    String question, {
+    int? documentId,
+    CancelToken? cancelToken,
+  }) async {
+    if (question.trim().isEmpty) {
+      throw ArgumentError.value(question, 'question', 'must not be blank');
+    }
+    if (question.runes.length > nativeChatMaximumQuestionLength) {
+      throw ArgumentError.value(
+        question,
+        'question',
+        'must not exceed $nativeChatMaximumQuestionLength characters',
+      );
+    }
+
+    final response = await _dio.post(
+      'api/documents/chat/',
+      data: {
+        'q': question,
+        if (documentId != null && documentId != 0) 'document_id': documentId,
+      },
+      cancelToken: cancelToken,
+      options: Options(
+        responseType: ResponseType.stream,
+        receiveTimeout: nativeChatReceiveTimeout,
+        extra: const {kNoRetryExtraKey: true},
+        // Older Paperless-ngx versions can gzip-buffer this otherwise-streamed
+        // response.  The normal JSON Accept header remains inherited from Dio.
+        headers: const {'Accept-Encoding': 'identity'},
+      ),
+    );
+    final data = response.data;
+    if (data is! ResponseBody) {
+      throw DioException(
+        requestOptions: response.requestOptions,
+        response: response,
+        type: DioExceptionType.badResponse,
+        message: 'native chat: expected a response stream',
+      );
+    }
+    final contentType = response.headers
+        .value(Headers.contentTypeHeader)
+        ?.split(';')
+        .first
+        .trim()
+        .toLowerCase();
+    if (contentType != 'text/event-stream') {
+      // Reject captive portals, authentication pages, and JSON proxy errors
+      // before their bytes can become an apparent assistant answer. Cancelling
+      // the just-opened subscription signals the underlying response stream
+      // that this body will not be consumed.
+      await data.stream.listen((_) {}).cancel();
+      throw DioException(
+        requestOptions: response.requestOptions,
+        response: response,
+        type: DioExceptionType.badResponse,
+        message: 'native chat: expected text/event-stream response',
+      );
+    }
+    return data.stream;
+  }
+
+  static const nativeChatMaximumQuestionLength = 4000;
+  static const nativeChatReceiveTimeout = Duration(seconds: 300);
+
   // Statistics
 
   Future<Map<String, dynamic>> getStatistics() async {
