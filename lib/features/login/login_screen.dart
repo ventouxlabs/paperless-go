@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,28 +22,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _tokenController = TextEditingController();
+  final _appClientIdController = TextEditingController();
 
+  List<SsoProvider> _ssoProviders = const [];
   bool _useTokenLogin = false;
   bool _obscurePassword = true;
   bool _testing = false;
   bool? _connectionOk;
   String? _connectionReason;
+  Timer? _autoTest;
 
   @override
   void dispose() {
+    _autoTest?.cancel();
     _serverUrlController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
     _tokenController.dispose();
+    _appClientIdController.dispose();
     super.dispose();
   }
 
   Future<void> _testConnection() async {
+    _autoTest?.cancel();
     final url = _normalizeUrl(_serverUrlController.text.trim());
     if (url.isEmpty || url.startsWith('http://')) {
       setState(() {
         _connectionOk = false;
         _connectionReason = null;
+        _ssoProviders = const [];
       });
       return;
     }
@@ -50,16 +59,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _testing = true;
       _connectionOk = null;
       _connectionReason = null;
+      _ssoProviders = const [];
     });
     try {
       await UserTrustStore.refresh();
       final authService = ref.read(authServiceProvider);
       final probe = await authService.testConnection(url);
-      if (mounted) {
-        setState(() {
-          _connectionOk = probe.ok;
-          _connectionReason = probe.reason;
-        });
+      if (!mounted || !_isCurrentUrl(url)) return;
+      setState(() {
+        _connectionOk = probe.ok;
+        _connectionReason = probe.reason;
+        _testing = false;
+      });
+      if (!probe.ok) return;
+      final providers = await authService.fetchSsoProviders(url);
+      if (mounted && _isCurrentUrl(url)) {
+        setState(() => _ssoProviders = providers);
       }
     } finally {
       if (mounted) {
@@ -67,6 +82,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     }
   }
+
+  /// Checks the server once typing pauses, so the SSO button can appear
+  /// without the user finding the test icon.
+  void _scheduleAutoTest() {
+    _autoTest?.cancel();
+    final host = Uri.tryParse(
+      _normalizeUrl(_serverUrlController.text.trim()),
+    )?.host;
+    if (host == null || host.isEmpty) return;
+    _autoTest = Timer(const Duration(milliseconds: 800), _testConnection);
+  }
+
+  bool _isCurrentUrl(String url) =>
+      _normalizeUrl(_serverUrlController.text.trim()) == url;
 
   String _normalizeUrl(String url) {
     if (url.isEmpty) return '';
@@ -96,6 +125,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           _passwordController.text,
         );
       }
+    } on AuthException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Connection error: ${friendlyApiMessage(e)}')),
+        );
+      }
+    }
+  }
+
+  Future<void> _ssoLogin(SsoProvider provider) async {
+    final serverUrl = _normalizeUrl(_serverUrlController.text.trim());
+    try {
+      await UserTrustStore.refresh();
+      await ref
+          .read(authStateProvider.notifier)
+          .loginWithSso(
+            serverUrl,
+            provider,
+            appClientId: _appClientIdController.text.trim(),
+          );
     } on AuthException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -213,12 +268,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           }
                           return null;
                         },
-                        onChanged: (_) => setState(() {
-                          // Refresh for HTTP warning, and drop any stale
-                          // reason from testing a previously-typed URL.
-                          _connectionOk = null;
-                          _connectionReason = null;
-                        }),
+                        onFieldSubmitted: (_) => _testConnection(),
+                        onChanged: (_) {
+                          _scheduleAutoTest();
+                          setState(() {
+                            // Refresh for HTTP warning, and drop any stale
+                            // reason from testing a previously-typed URL.
+                            _connectionOk = null;
+                            _connectionReason = null;
+                            _ssoProviders = const [];
+                          });
+                        },
                       ),
 
                       // HTTP warning
@@ -359,6 +419,39 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               )
                             : const Text('Login'),
                       ),
+                      if (_ssoProviders.isNotEmpty) ...[
+                        const SizedBox(height: Spacing.lg),
+                        for (final provider in _ssoProviders)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: Spacing.sm),
+                            child: OutlinedButton.icon(
+                              onPressed: isLoading
+                                  ? null
+                                  : () => _ssoLogin(provider),
+                              icon: const Icon(Icons.open_in_browser),
+                              label: Text('Sign in with ${provider.name}'),
+                            ),
+                          ),
+                        ExpansionTile(
+                          title: const Text('Advanced'),
+                          tilePadding: EdgeInsets.zero,
+                          childrenPadding: const EdgeInsets.only(
+                            bottom: Spacing.sm,
+                          ),
+                          children: [
+                            TextFormField(
+                              controller: _appClientIdController,
+                              decoration: const InputDecoration(
+                                labelText: 'App client ID',
+                                helperText:
+                                    'Only for Dex cross-client setups. '
+                                    'Leave empty otherwise.',
+                              ),
+                              autocorrect: false,
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
