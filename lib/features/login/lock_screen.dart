@@ -4,15 +4,29 @@ import '../../core/services/biometric_service.dart';
 
 class LockScreen extends StatefulWidget {
   final VoidCallback onUnlocked;
-  const LockScreen({super.key, required this.onUnlocked});
+
+  /// Clears the session and returns to login. Offered only when this device
+  /// cannot authenticate, so the user is never stranded; it is not a bypass.
+  final VoidCallback? onSignOut;
+
+  final BiometricService? biometrics;
+
+  const LockScreen({
+    super.key,
+    required this.onUnlocked,
+    this.onSignOut,
+    this.biometrics,
+  });
 
   @override
   State<LockScreen> createState() => _LockScreenState();
 }
 
 class _LockScreenState extends State<LockScreen> {
-  final _biometricService = BiometricService();
+  late final BiometricService _biometricService =
+      widget.biometrics ?? BiometricService();
   bool _isAuthenticating = false;
+  bool _cannotAuthenticate = false;
 
   @override
   void initState() {
@@ -24,12 +38,18 @@ class _LockScreenState extends State<LockScreen> {
     if (_isAuthenticating) return;
     setState(() => _isAuthenticating = true);
 
-    final success = await _biometricService.authenticate();
+    final available = await _biometricService.isAvailable();
+    final result = available
+        ? await _biometricService.authenticateResult()
+        : BiometricResult.unavailable;
     if (!mounted) return;
-    if (success) {
+    if (result == BiometricResult.success) {
       widget.onUnlocked();
     } else {
-      setState(() => _isAuthenticating = false);
+      setState(() {
+        _isAuthenticating = false;
+        _cannotAuthenticate = result == BiometricResult.unavailable;
+      });
     }
   }
 
@@ -63,6 +83,19 @@ class _LockScreenState extends State<LockScreen> {
               icon: const Icon(Icons.fingerprint),
               label: const Text('Unlock'),
             ),
+            if (_cannotAuthenticate && widget.onSignOut != null) ...[
+              const SizedBox(height: 16),
+              Text(
+                'This device cannot verify you. Signing out clears the '
+                'saved session so you can log in again.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              TextButton(
+                onPressed: widget.onSignOut,
+                child: const Text('Sign out'),
+              ),
+            ],
           ],
         ),
       ),

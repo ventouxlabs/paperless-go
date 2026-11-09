@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app.dart';
+import 'core/auth/auth_provider.dart';
+import 'core/auth/start_lock.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/user_trust_store.dart';
 import 'core/settings/start_screen.dart';
@@ -24,10 +26,16 @@ void main() async {
   await container
       .read(startScreenProvider.future)
       .timeout(const Duration(seconds: 2), onTimeout: () => StartScreen.fallback);
+  // The lock must be decided before the first frame: biometricLockProvider
+  // loads its setting asynchronously, so reading it here would race. Fails
+  // closed: an unreadable setting starts the app locked.
+  final startLock = await resolveStartLock(
+    container.read(secureStorageProvider).getBiometricLock,
+  );
   runApp(
     UncontrolledProviderScope(
       container: container,
-      child: const PaperlessGoApp(),
+      child: PaperlessGoApp(startLock: startLock),
     ),
   );
 }
