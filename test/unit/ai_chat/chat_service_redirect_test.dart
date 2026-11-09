@@ -166,6 +166,7 @@ void main() {
         throwsException,
       );
 
+      await Future<void>.delayed(Duration.zero); // whenCancel is async
       expect(closed, 2);
     });
   });

@@ -120,11 +120,6 @@ class ChatService {
 
   static const _maxRedirects = 5;
 
-  void _discardBody(Response<dynamic> response) {
-    final body = response.data;
-    if (body is ResponseBody) body.close();
-  }
-
   /// Sends an authenticated request and follows redirects manually.
   ///
   /// The session JWT is attached to every hop, so a redirect is only followed
@@ -138,9 +133,11 @@ class ChatService {
     ResponseType? responseType,
   }) async {
     final origin = Uri.parse(_dio.options.baseUrl);
+    var hopToken = CancelToken();
     var response = await _dio.request<dynamic>(
       path,
       data: data,
+      cancelToken: hopToken,
       options: _authOptions(responseType: responseType).copyWith(method: method),
     );
     var redirectCount = 0;
@@ -148,9 +145,10 @@ class ChatService {
         response.statusCode == 302 ||
         response.statusCode == 307 ||
         response.statusCode == 308) {
-      // A redirect body is never read; release the connection before
-      // following or refusing (matters for ResponseType.stream).
-      _discardBody(response);
+      // A redirect body is never read. Cancelling the hop's token closes the
+      // underlying response (matters for ResponseType.stream); a Dio stream
+      // subscription cancel alone does not.
+      hopToken.cancel('redirect');
       if (++redirectCount > _maxRedirects) {
         throw Exception('Too many redirects');
       }
@@ -175,9 +173,11 @@ class ChatService {
       // Only same-origin hops reach this point, so the CSRF/Referer headers
       // of the original request are safe to resend; any future cross-origin
       // support must strip Authorization, Cookie, X-CSRFToken and Referer.
+      hopToken = CancelToken();
       response = await _dio.requestUri<dynamic>(
         target,
         data: data,
+        cancelToken: hopToken,
         options: _authOptions(responseType: responseType).copyWith(method: method),
       );
     }
