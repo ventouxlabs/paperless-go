@@ -118,40 +118,83 @@ class ChatService {
     );
   }
 
+  static const _maxRedirects = 5;
+
+  /// Sends an authenticated request and follows redirects manually.
+  ///
+  /// The session JWT is attached to every hop, so a redirect is only followed
+  /// when its target has the same origin (scheme, host, port) as the
+  /// configured Paperless-AI URL. Anything else is refused before a request
+  /// carrying the credentials is made.
+  Future<Response<dynamic>> _requestFollowingRedirects(
+    String method,
+    String path, {
+    Object? data,
+    ResponseType? responseType,
+  }) async {
+    final origin = Uri.parse(_dio.options.baseUrl);
+    var hopToken = CancelToken();
+    var response = await _dio.request<dynamic>(
+      path,
+      data: data,
+      cancelToken: hopToken,
+      options: _authOptions(responseType: responseType).copyWith(method: method),
+    );
+    var redirectCount = 0;
+    while (response.statusCode == 301 ||
+        response.statusCode == 302 ||
+        response.statusCode == 307 ||
+        response.statusCode == 308) {
+      // A redirect body is never read. Cancelling the hop's token closes the
+      // underlying response (matters for ResponseType.stream); a Dio stream
+      // subscription cancel alone does not.
+      hopToken.cancel('redirect');
+      if (++redirectCount > _maxRedirects) {
+        throw Exception('Too many redirects');
+      }
+      final location = response.headers.value('location');
+      if (location == null) {
+        throw Exception('Redirect without Location header');
+      }
+      if (location.contains('/login')) {
+        throw Exception('Authentication required. Check your Paperless-AI credentials in Settings.');
+      }
+      final Uri target;
+      try {
+        target = response.requestOptions.uri.resolve(location);
+      } on FormatException {
+        throw Exception('Refused redirect to a different server. Check your Paperless-AI URL.');
+      }
+      if (target.scheme != origin.scheme ||
+          target.host != origin.host ||
+          target.port != origin.port) {
+        throw Exception('Refused redirect to a different server. Check your Paperless-AI URL.');
+      }
+      // Only same-origin hops reach this point, so the CSRF/Referer headers
+      // of the original request are safe to resend; any future cross-origin
+      // support must strip Authorization, Cookie, X-CSRFToken and Referer.
+      hopToken = CancelToken();
+      response = await _dio.requestUri<dynamic>(
+        target,
+        data: data,
+        cancelToken: hopToken,
+        options: _authOptions(responseType: responseType).copyWith(method: method),
+      );
+    }
+    return response;
+  }
+
   /// Send a RAG chat message and get a response.
   /// Uses POST /api/rag/ask with {"question": "..."} → {"answer": "...", "sources": [...]}
   Future<ChatMessage> sendMessage(String message, List<ChatMessage> history) async {
     try {
       final payload = {'question': message};
 
-      var response = await _dio.post(
+      final response = await _requestFollowingRedirects(
+        'POST',
         'api/rag/ask',
         data: payload,
-        options: _authOptions(),
       );
-
-      // Follow redirects manually for POST
-      var redirectCount = 0;
-      while (response.statusCode == 301 ||
-          response.statusCode == 302 ||
-          response.statusCode == 307 ||
-          response.statusCode == 308) {
-        if (++redirectCount > 5) {
-          throw Exception('Too many redirects');
-        }
-        final location = response.headers.value('location');
-        if (location == null) {
-          throw Exception('Redirect without Location header');
-        }
-        if (location.contains('/login')) {
-          throw Exception('Authentication required. Check your Paperless-AI credentials in Settings.');
-        }
-        response = await _dio.post(
-          location,
-          data: payload,
-          options: _authOptions(),
-        );
-      }
 
       final data = response.data;
 
@@ -207,9 +250,9 @@ class ChatService {
   /// Initialize a document chat session.
   Future<void> initDocumentChat(int documentId) async {
     try {
-      final response = await _dio.get(
+      final response = await _requestFollowingRedirects(
+        'GET',
         'chat/init/$documentId',
-        options: _authOptions(followRedirects: true),
       );
 
       // Detect HTML responses (e.g., login page or error page)
@@ -248,34 +291,12 @@ class ChatService {
     };
 
     try {
-      var response = await _dio.post(
+      final response = await _requestFollowingRedirects(
+        'POST',
         'chat/message',
         data: payload,
-        options: _authOptions(responseType: ResponseType.stream),
+        responseType: ResponseType.stream,
       );
-
-      // Follow redirects manually for POST with stream
-      var redirectCount = 0;
-      while (response.statusCode == 301 ||
-          response.statusCode == 302 ||
-          response.statusCode == 307 ||
-          response.statusCode == 308) {
-        if (++redirectCount > 5) {
-          throw Exception('Too many redirects');
-        }
-        final location = response.headers.value('location');
-        if (location == null) {
-          throw Exception('Redirect without Location header');
-        }
-        if (location.contains('/login')) {
-          throw Exception('Authentication required. Check your Paperless-AI credentials in Settings.');
-        }
-        response = await _dio.post(
-          location,
-          data: payload,
-          options: _authOptions(responseType: ResponseType.stream),
-        );
-      }
 
       // Check content-type to detect HTML responses
       final contentType = response.headers.value('content-type') ?? '';
