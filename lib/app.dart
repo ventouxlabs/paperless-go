@@ -313,7 +313,11 @@ GoRouter router(Ref ref) {
 }
 
 class PaperlessGoApp extends ConsumerStatefulWidget {
-  const PaperlessGoApp({super.key});
+  /// True when the biometric lock is enabled at process start. The app then
+  /// begins locked, so no document data renders before the first unlock.
+  final bool startLocked;
+
+  const PaperlessGoApp({super.key, this.startLocked = false});
 
   @override
   ConsumerState<PaperlessGoApp> createState() => _PaperlessGoAppState();
@@ -321,7 +325,7 @@ class PaperlessGoApp extends ConsumerStatefulWidget {
 
 class _PaperlessGoAppState extends ConsumerState<PaperlessGoApp>
     with WidgetsBindingObserver {
-  bool _isLocked = false;
+  late bool _isLocked = widget.startLocked;
   late final _shareIntentHandler = ShareIntentHandler(
     rootNavigatorKey,
     () => ref.read(authStateProvider).valueOrNull?.isAuthenticated ?? false,
@@ -363,7 +367,6 @@ class _PaperlessGoAppState extends ConsumerState<PaperlessGoApp>
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeNotifierProvider);
-    final biometricEnabled = ref.watch(biometricLockProvider);
 
     // Flush any share/open-with that arrived while logged out (#24) once
     // login succeeds. Keyed on the unauthenticated->authenticated edge, not
@@ -398,7 +401,7 @@ class _PaperlessGoAppState extends ConsumerState<PaperlessGoApp>
         return Stack(
           children: [
             content,
-            if (biometricEnabled && _isLocked)
+            if (_isLocked)
               Positioned.fill(
                 child: LockScreen(
                   onUnlocked: () => setState(() => _isLocked = false),
