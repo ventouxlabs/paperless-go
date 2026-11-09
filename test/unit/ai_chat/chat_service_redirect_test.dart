@@ -76,10 +76,14 @@ void main() {
       expect(adapter.seen.single.uri.host, '192.168.1.50');
     });
 
-    test('refuses a different port or scheme on the same host', () async {
+    // Each target differs from http://192.168.1.50:8083 in exactly one of
+    // host, port, scheme, so dropping any single comparison fails a case.
+    test('refuses a redirect that differs in only one origin component',
+        () async {
       for (final target in [
-        'http://192.168.1.50:9999/x',
-        'https://192.168.1.50:8083/x',
+        'http://attacker.example:8083/x', // host only
+        'http://192.168.1.50:9999/x', // port only
+        'https://192.168.1.50:8083/x', // scheme only
       ]) {
         final (service, adapter) = await _loggedIn([
           (_) => _redirect(target),
@@ -89,6 +93,20 @@ void main() {
         await expectLater(service.sendMessage('hi', const []), throwsException);
         expect(adapter.seen, hasLength(1), reason: target);
       }
+    });
+
+    test('reports a malformed Location as a refused redirect', () async {
+      final (service, adapter) = await _loggedIn([
+        (_) => _redirect('http://[bad'),
+        (_) => _json({'answer': 'leaked'}),
+      ]);
+
+      await expectLater(
+        service.sendMessage('hi', const []),
+        throwsA(isA<Exception>().having(
+            (e) => e.toString(), 'message', contains('Refused redirect'))),
+      );
+      expect(adapter.seen, hasLength(1));
     });
 
     test('follows a same-origin redirect and keeps the credentials', () async {
@@ -129,6 +147,26 @@ void main() {
       );
 
       expect(adapter.seen, hasLength(1));
+    });
+  });
+
+  group('sendDocumentMessage stream bodies', () {
+    test('closes the body of every redirect hop and of the refused hop',
+        () async {
+      var closed = 0;
+      ResponseBody redirect(String to) => ResponseBody.fromString('', 307,
+          headers: {'location': [to]}, onClose: () => closed++);
+      final (service, _) = await _loggedIn([
+        (_) => redirect('/chat/message2'),
+        (_) => redirect('http://attacker.example:8083/x'),
+      ]);
+
+      await expectLater(
+        service.sendDocumentMessage(1, 'hi').toList(),
+        throwsException,
+      );
+
+      expect(closed, 2);
     });
   });
 

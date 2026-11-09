@@ -120,6 +120,11 @@ class ChatService {
 
   static const _maxRedirects = 5;
 
+  void _discardBody(Response<dynamic> response) {
+    final body = response.data;
+    if (body is ResponseBody) body.close();
+  }
+
   /// Sends an authenticated request and follows redirects manually.
   ///
   /// The session JWT is attached to every hop, so a redirect is only followed
@@ -143,6 +148,9 @@ class ChatService {
         response.statusCode == 302 ||
         response.statusCode == 307 ||
         response.statusCode == 308) {
+      // A redirect body is never read; release the connection before
+      // following or refusing (matters for ResponseType.stream).
+      _discardBody(response);
       if (++redirectCount > _maxRedirects) {
         throw Exception('Too many redirects');
       }
@@ -153,12 +161,20 @@ class ChatService {
       if (location.contains('/login')) {
         throw Exception('Authentication required. Check your Paperless-AI credentials in Settings.');
       }
-      final target = response.requestOptions.uri.resolve(location);
+      final Uri target;
+      try {
+        target = response.requestOptions.uri.resolve(location);
+      } on FormatException {
+        throw Exception('Refused redirect to a different server. Check your Paperless-AI URL.');
+      }
       if (target.scheme != origin.scheme ||
           target.host != origin.host ||
           target.port != origin.port) {
         throw Exception('Refused redirect to a different server. Check your Paperless-AI URL.');
       }
+      // Only same-origin hops reach this point, so the CSRF/Referer headers
+      // of the original request are safe to resend; any future cross-origin
+      // support must strip Authorization, Cookie, X-CSRFToken and Referer.
       response = await _dio.requestUri<dynamic>(
         target,
         data: data,
