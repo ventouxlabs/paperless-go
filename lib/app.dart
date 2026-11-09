@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'core/auth/auth_provider.dart';
+import 'core/auth/start_lock.dart';
 import 'core/settings/start_screen.dart';
 import 'core/router/scan_route_args.dart';
 import 'core/services/connectivity_service.dart';
@@ -313,11 +314,12 @@ GoRouter router(Ref ref) {
 }
 
 class PaperlessGoApp extends ConsumerStatefulWidget {
-  /// True when the biometric lock is enabled at process start. The app then
-  /// begins locked, so no document data renders before the first unlock.
-  final bool startLocked;
+  /// Whether the biometric lock applies at process start. Anything but
+  /// [StartLock.unlocked] begins locked, so no document data renders before
+  /// the first unlock.
+  final StartLock startLock;
 
-  const PaperlessGoApp({super.key, this.startLocked = false});
+  const PaperlessGoApp({super.key, this.startLock = StartLock.unlocked});
 
   @override
   ConsumerState<PaperlessGoApp> createState() => _PaperlessGoAppState();
@@ -325,7 +327,7 @@ class PaperlessGoApp extends ConsumerStatefulWidget {
 
 class _PaperlessGoAppState extends ConsumerState<PaperlessGoApp>
     with WidgetsBindingObserver {
-  late bool _isLocked = widget.startLocked;
+  late bool _isLocked = widget.startLock.startsLocked;
   late final _shareIntentHandler = ShareIntentHandler(
     rootNavigatorKey,
     () => ref.read(authStateProvider).valueOrNull?.isAuthenticated ?? false,
@@ -337,6 +339,29 @@ class _PaperlessGoAppState extends ConsumerState<PaperlessGoApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    if (widget.startLock == StartLock.unknown) _resolveUnknownLock();
+  }
+
+  /// The setting was unreadable at startup, so we began locked. Re-read it
+  /// and release the lock only on a definite "off"; a failing read stays
+  /// locked (the lock screen offers Sign out if the device cannot
+  /// authenticate).
+  Future<void> _resolveUnknownLock() async {
+    try {
+      final enabled = await ref.read(secureStorageProvider).getBiometricLock();
+      if (mounted && !enabled) setState(() => _isLocked = false);
+    } catch (_) {
+      // Stay locked.
+    }
+  }
+
+  Future<void> _signOutFromLock() async {
+    // Clear the session first; the lock only lifts once nothing is left to
+    // protect. Turn the lock off too so the next login is not gated by an
+    // authenticator this device cannot provide.
+    await ref.read(authStateProvider.notifier).logout();
+    await ref.read(biometricLockProvider.notifier).setEnabled(false);
+    if (mounted) setState(() => _isLocked = false);
   }
 
   @override
@@ -403,8 +428,11 @@ class _PaperlessGoAppState extends ConsumerState<PaperlessGoApp>
             content,
             if (_isLocked)
               Positioned.fill(
-                child: LockScreen(
-                  onUnlocked: () => setState(() => _isLocked = false),
+                child: BlockSemantics(
+                  child: LockScreen(
+                    onUnlocked: () => setState(() => _isLocked = false),
+                    onSignOut: _signOutFromLock,
+                  ),
                 ),
               ),
           ],
