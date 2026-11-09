@@ -359,7 +359,13 @@ class _PaperlessGoAppState extends ConsumerState<PaperlessGoApp>
     // Clear the session first; the lock only lifts once nothing is left to
     // protect. Turn the lock off too so the next login is not gated by an
     // authenticator this device cannot provide.
-    await ref.read(authStateProvider.notifier).logout();
+    try {
+      await ref.read(authStateProvider.notifier).logout();
+    } catch (e) {
+      // The session is still there: stay locked rather than expose it.
+      debugPrint('Sign out from the lock screen failed: $e');
+      return;
+    }
     await ref.read(biometricLockProvider.notifier).setEnabled(false);
     if (mounted) setState(() => _isLocked = false);
   }

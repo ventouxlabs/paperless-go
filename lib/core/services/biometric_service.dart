@@ -12,7 +12,10 @@ enum BiometricResult {
 }
 
 class BiometricService {
-  final LocalAuthentication _auth = LocalAuthentication();
+  final LocalAuthentication _auth;
+
+  BiometricService({LocalAuthentication? auth})
+      : _auth = auth ?? LocalAuthentication();
 
   Future<bool> isAvailable() async {
     try {
