@@ -80,8 +80,59 @@ A modern, open-source mobile client for [Paperless-ngx](https://github.com/paper
 
 1. Install from F-Droid, GitHub Releases, or build from source
 2. Enter your server URL (e.g. `https://paperless.example.com`)
-3. Log in with username/password or paste an API token
+3. Log in with username/password, paste an API token, or sign in with SSO
 4. Start managing your documents
+
+## Single sign-on (SSO)
+
+Accounts created through an OpenID Connect provider in Paperless-ngx can sign
+in with **Sign in with &lt;provider&gt;**. The button appears after a successful
+connection test. The app opens the provider's login page in the system
+browser (authorization code with PKCE, no client secret in the app) and swaps
+the result for a normal Paperless API token.
+
+Requirements:
+
+- Paperless-ngx 3.0.0 or newer, with the provider configured as
+  `openid_connect` in `PAPERLESS_SOCIALACCOUNT_PROVIDERS`.
+- The provider must allow the redirect URI
+  `com.ventouxlabs.paperlessgo:/oidc-callback` for a **public** client.
+
+Paperless only accepts ID tokens issued for its own client ID, so pick one of
+these setups.
+
+**Shared client (Authentik, Keycloak).** Make the client Paperless uses
+public and add the redirect URI above. Both providers skip the secret check
+for public clients, so the Paperless web login keeps working. Leave
+**Advanced → App client ID** empty. Authentik does not force PKCE on public
+clients. Paperless Go always sends it. Keep the redirect URIs strict so
+Authentik sends login codes only to the app and the Paperless web login.
+
+**App client (Dex).** Dex always checks the secret, so keep the Paperless
+client as it is, add a public client for the app and let the Paperless client
+trust it:
+
+```yaml
+staticClients:
+  - id: paperless
+    name: Paperless
+    secret: <unchanged>
+    redirectURIs:
+      - https://paperless.example.com/accounts/oidc/<provider_id>/login/callback/
+    trustedPeers:
+      - paperless-go
+  - id: paperless-go
+    name: Paperless Go
+    public: true
+    redirectURIs:
+      - com.ventouxlabs.paperlessgo:/oidc-callback
+```
+
+Then enter `paperless-go` under **Advanced → App client ID** before tapping
+the sign-in button.
+
+If the Paperless account has two-factor login turned on, SSO in the app is not
+supported yet. Use an API token instead.
 
 ## Build from Source
 

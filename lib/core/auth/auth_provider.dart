@@ -60,6 +60,30 @@ class AuthState extends _$AuthState {
     }
   }
 
+  Future<void> loginWithSso(
+    String serverUrl,
+    SsoProvider provider, {
+    String? appClientId,
+  }) async {
+    state = const AsyncLoading();
+    try {
+      final authService = ref.read(authServiceProvider);
+      final token = await authService.loginWithSso(
+        serverUrl,
+        provider,
+        appClientId: appClientId,
+      );
+      state = AsyncData(
+        token == null
+            ? const AuthStatus.unauthenticated()
+            : AuthStatus.authenticated(serverUrl: serverUrl, token: token),
+      );
+    } catch (e) {
+      state = const AsyncData(AuthStatus.unauthenticated());
+      rethrow;
+    }
+  }
+
   Future<void> logout() async {
     final authService = ref.read(authServiceProvider);
     try {
