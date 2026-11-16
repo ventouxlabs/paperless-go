@@ -243,8 +243,14 @@ class SharePlugin(
                             // Copying runs off the main thread: the stream is
                             // externally supplied and may be large or slow.
                             copyExecutor.execute {
-                                val resolved = resolveIntent(current)
+                                val resolved = resolveIntentSafely(current)
                                 activity.runOnUiThread {
+                                    // Re-check: a concurrent request may have
+                                    // delivered this intent while we copied.
+                                    if (wasDelivered(current)) {
+                                        result.success(sharePayload(JSONArray(), 0))
+                                        return@runOnUiThread
+                                    }
                                     if (shouldMarkDelivered(resolved.files.length(), resolved.requested)) {
                                         markDelivered(current)
                                     }
@@ -277,9 +283,23 @@ class SharePlugin(
             return
         }
         copyExecutor.execute {
-            val resolved = resolveIntent(intent)
-            activity.runOnUiThread { deliverResolved(intent, resolved) }
+            val resolved = resolveIntentSafely(intent)
+            activity.runOnUiThread {
+                if (!wasDelivered(intent)) deliverResolved(intent, resolved)
+            }
         }
+    }
+
+    /**
+     * Runs on the copy executor, where an uncaught throw (e.g. a malformed
+     * parcelable extra) would kill the worker and leave the Dart future
+     * unanswered. Degrade to "nothing resolved" so the caller always replies.
+     */
+    private fun resolveIntentSafely(intent: Intent): Resolved = try {
+        resolveIntent(intent)
+    } catch (e: Exception) {
+        Log.w(TAG, "resolveIntent failed: ${e.javaClass.simpleName}")
+        Resolved(JSONArray(), 0)
     }
 
     private fun deliverResolved(intent: Intent, resolved: Resolved) {
