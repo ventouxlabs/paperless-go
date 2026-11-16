@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_providers.dart';
+import '../../core/services/document_lock_service.dart';
 import '../../core/design_tokens.dart';
 import '../../shared/widgets/document_card.dart';
 import 'search_notifier.dart';
@@ -123,6 +124,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 final correspondents = correspondentsAsync.valueOrNull ?? {};
                 final docTypes = docTypesAsync.valueOrNull ?? {};
                 final api = ref.watch(paperlessApiProvider);
+                final lockedIds =
+                    ref.watch(lockedDocumentIdsProvider).valueOrNull ?? const <int>{};
 
                 if (documents.isEmpty) {
                   return Center(
@@ -170,6 +173,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           documentTypes: docTypes,
                           thumbnailUrl: api.thumbnailUrl(doc.id),
                           authToken: api.authToken,
+                          locked: lockedIds.contains(doc.id),
                           onTap: () => context.push('/documents/${doc.id}'),
                         );
                       },

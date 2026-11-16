@@ -42,3 +42,9 @@ DocumentLockService documentLockService(Ref ref) {
   final db = ref.watch(appDatabaseProvider);
   return DocumentLockService(db);
 }
+
+/// IDs of all documents behind a per-document lock. Invalidate after
+/// lock/unlock so list views and thumbnails update.
+final lockedDocumentIdsProvider = FutureProvider<Set<int>>((ref) {
+  return ref.watch(documentLockServiceProvider).getLockedIds();
+});

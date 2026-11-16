@@ -13,6 +13,7 @@ import '../../shared/widgets/loading_skeleton.dart';
 import '../../shared/widgets/paginated_list_view.dart';
 import '../../shared/widgets/stamp_chip.dart';
 import '../../shared/save_to_folder_action.dart';
+import '../../core/services/document_lock_service.dart';
 import '../../core/services/export_destination_service.dart';
 import '../../core/design_tokens.dart';
 import '../../core/api/api_error_mapper.dart';
@@ -319,6 +320,8 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                       }
 
                       final api = ref.watch(paperlessApiProvider);
+                      final lockedIds =
+                          ref.watch(lockedDocumentIdsProvider).valueOrNull ?? const <int>{};
 
                       return PaginatedListView(
                         onRefresh: () =>
@@ -390,6 +393,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                                     documentTypes: docTypes,
                                     thumbnailUrl: api.thumbnailUrl(doc.id),
                                     authToken: api.authToken,
+                                    locked: lockedIds.contains(doc.id),
                                     onTap: _isSelecting
                                         ? () => _toggleSelection(doc.id)
                                         : () => context.push('/documents/${doc.id}'),

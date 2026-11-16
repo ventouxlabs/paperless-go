@@ -21,6 +21,10 @@ class DocumentCard extends StatelessWidget {
   final String? thumbnailUrl;
   final String? authToken;
 
+  /// When true the document is behind a per-document lock, so the thumbnail
+  /// (a rendering of its first page) is replaced with a lock placeholder.
+  final bool locked;
+
   /// Optional trailing widget (e.g. an actions menu) rendered at the end of the
   /// card. Provides a non-gesture affordance alongside swipe/long-press.
   final Widget? trailing;
@@ -37,6 +41,7 @@ class DocumentCard extends StatelessWidget {
     this.onLongPress,
     this.thumbnailUrl,
     this.authToken,
+    this.locked = false,
     this.trailing,
   });
 
@@ -76,7 +81,22 @@ class DocumentCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Thumbnail
-              if (thumbnailUrl != null && authToken != null)
+              if (locked)
+                Padding(
+                  padding: const EdgeInsets.only(right: Spacing.md),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(Radii.sm),
+                    child: Container(
+                      width: 48,
+                      height: 64,
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      child: Icon(Icons.lock_outline,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    ),
+                  ),
+                )
+              else if (thumbnailUrl != null && authToken != null)
                 Padding(
                   padding: const EdgeInsets.only(right: Spacing.md),
                   child: ClipRRect(
