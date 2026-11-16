@@ -14,6 +14,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStream
+import java.io.OutputStream
+import java.util.concurrent.Executors
 
 /**
  * Which part of an Intent carries the shared file, decided by [selectSource] from
@@ -164,6 +167,25 @@ internal class ShareDeliveryBuffer {
     }
 }
 
+/** Upper bound on a single shared file copied into cache (externally supplied stream). */
+internal const val MAX_SHARE_BYTES: Long = 100L * 1024 * 1024
+
+/**
+ * Copies [input] to [output], giving up once more than [maxBytes] have been read.
+ * Returns false when the limit was exceeded (the caller must discard the output).
+ */
+internal fun copyBounded(input: InputStream, output: OutputStream, maxBytes: Long): Boolean {
+    val buffer = ByteArray(8192)
+    var total = 0L
+    while (true) {
+        val n = input.read(buffer)
+        if (n < 0) return true
+        total += n
+        if (total > maxBytes) return false
+        output.write(buffer, 0, n)
+    }
+}
+
 /**
  * Resolves shared files by reading their bytes directly via ContentResolver
  * and copying them to app cache. This exists because receive_sharing_intent's
@@ -186,6 +208,7 @@ class SharePlugin(
     private val onDelivered: () -> Unit = {},
 ) {
     private val deliveries = ShareDeliveryBuffer()
+    private val copyExecutor = Executors.newSingleThreadExecutor()
 
     companion object {
         private const val TAG = "PaperlessShare"
@@ -212,23 +235,23 @@ class SharePlugin(
                 when (call.method) {
                     "getInitialShare" -> {
                         val current = activity.intent
-                        val payload = if (current == null || wasDelivered(current)) {
+                        if (current == null || wasDelivered(current)) {
                             if (verbose()) Log.d(TAG, "getInitialShare: intent already delivered, skipping")
-                            sharePayload(JSONArray(), 0)
+                            result.success(sharePayload(JSONArray(), 0))
                         } else {
-                            // Marked only on a non-empty result: copyToCache
-                            // swallows IO failures and returns nothing, and
-                            // burning the intent on a transient failure would
-                            // make the share unrecoverable. Re-resolving a
-                            // genuinely empty intent costs nothing.
-                            resolveIntent(current).let { resolved ->
-                                if (shouldMarkDelivered(resolved.files.length(), resolved.requested)) {
-                                    markDelivered(current)
+                            // Marked only on the main thread after the copy.
+                            // Copying runs off the main thread: the stream is
+                            // externally supplied and may be large or slow.
+                            copyExecutor.execute {
+                                val resolved = resolveIntent(current)
+                                activity.runOnUiThread {
+                                    if (shouldMarkDelivered(resolved.files.length(), resolved.requested)) {
+                                        markDelivered(current)
+                                    }
+                                    result.success(sharePayload(resolved.files, resolved.requested))
                                 }
-                                sharePayload(resolved.files, resolved.requested)
                             }
                         }
-                        result.success(payload)
                     }
                     else -> result.notImplemented()
                 }
@@ -253,7 +276,13 @@ class SharePlugin(
             if (verbose()) Log.d(TAG, "onNewIntent: intent already delivered, skipping")
             return
         }
-        val resolved = resolveIntent(intent)
+        copyExecutor.execute {
+            val resolved = resolveIntent(intent)
+            activity.runOnUiThread { deliverResolved(intent, resolved) }
+        }
+    }
+
+    private fun deliverResolved(intent: Intent, resolved: Resolved) {
         val files = resolved.files
         if (verbose()) Log.d(TAG, "onNewIntent: resolved ${files.length()} of ${resolved.requested} file(s)")
         // An intent that carried no file at all is not a share; say nothing.
@@ -314,9 +343,9 @@ class SharePlugin(
             val targetFile = File(activity.cacheDir, "share_${System.currentTimeMillis()}_$displayName")
             if (verbose()) Log.d(TAG, "copyToCache: uri=$uri displayName=$displayName mimeType=$mimeType target=${targetFile.absolutePath}")
             val copied = resolver.openInputStream(uri)?.use { input ->
-                FileOutputStream(targetFile).use { output -> input.copyTo(output) }
-                true
+                FileOutputStream(targetFile).use { output -> copyBounded(input, output, MAX_SHARE_BYTES) }
             } ?: false
+            if (!copied) targetFile.delete()
             if (verbose()) Log.d(TAG, "copyToCache: copied=$copied exists=${targetFile.exists()} size=${targetFile.length()}")
             if (!copied) return null
 
