@@ -9,6 +9,7 @@ import '../../core/design_tokens.dart';
 import '../../core/models/correspondent.dart';
 import '../../core/models/document.dart';
 import '../../core/models/document_type.dart';
+import '../../core/services/document_lock_service.dart';
 import '../../shared/widgets/metadata_dropdown.dart';
 import '../../shared/widgets/stamp_chip.dart';
 import '../scanner/processing/metadata_matcher.dart';
@@ -299,6 +300,7 @@ class _InboxCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tokens = AppTokens.of(context);
     final api = ref.watch(paperlessApiProvider);
+    final locked = ref.watch(lockedDocumentIdsProvider).isLocked(document.id);
     final correspondents =
         ref.watch(correspondentsProvider).valueOrNull ?? {};
 
@@ -330,17 +332,19 @@ class _InboxCard extends ConsumerWidget {
                   width: double.infinity,
                   child: ColoredBox(
                     color: tokens.paper,
-                    child: CachedNetworkImage(
-                      imageUrl: api.thumbnailUrl(document.id),
-                      httpHeaders: {'Authorization': api.authToken},
-                      fit: BoxFit.cover,
-                      alignment: Alignment.topCenter,
-                      errorWidget: (_, __, ___) => Icon(
-                        Icons.description_outlined,
-                        size: 56,
-                        color: tokens.inkSoft,
-                      ),
-                    ),
+                    child: locked
+                        ? Icon(Icons.lock_outline, size: 56, color: tokens.inkSoft)
+                        : CachedNetworkImage(
+                            imageUrl: api.thumbnailUrl(document.id),
+                            httpHeaders: {'Authorization': api.authToken},
+                            fit: BoxFit.cover,
+                            alignment: Alignment.topCenter,
+                            errorWidget: (_, __, ___) => Icon(
+                              Icons.description_outlined,
+                              size: 56,
+                              color: tokens.inkSoft,
+                            ),
+                          ),
                   ),
                 ),
               ),

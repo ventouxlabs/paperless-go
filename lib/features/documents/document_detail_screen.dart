@@ -668,6 +668,7 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
     switch (action) {
       case 'lock_doc':
         await ref.read(documentLockServiceProvider).lock(documentId);
+        ref.invalidate(lockedDocumentIdsProvider);
         if (mounted) setState(() => _isLocked = true);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -680,6 +681,7 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
         );
         if (!authed) return;
         await ref.read(documentLockServiceProvider).unlock(documentId);
+        ref.invalidate(lockedDocumentIdsProvider);
         if (mounted) setState(() => _isLocked = false);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

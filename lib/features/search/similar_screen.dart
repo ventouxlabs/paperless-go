@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../core/api/api_providers.dart';
+import '../../core/services/document_lock_service.dart';
 import '../../core/design_tokens.dart';
 import '../../core/models/document.dart';
 import '../../shared/widgets/document_card.dart';
@@ -73,6 +74,7 @@ class SimilarScreen extends ConsumerWidget {
           }
 
           final api = ref.watch(paperlessApiProvider);
+          final lockedAsync = ref.watch(lockedDocumentIdsProvider);
           return ListView.builder(
             itemCount: documents.length,
             itemBuilder: (context, index) {
@@ -84,6 +86,7 @@ class SimilarScreen extends ConsumerWidget {
                 documentTypes: docTypes,
                 thumbnailUrl: api.thumbnailUrl(doc.id),
                 authToken: api.authToken,
+                locked: lockedAsync.isLocked(doc.id),
                 onTap: () => context.push('/documents/${doc.id}'),
               );
             },
