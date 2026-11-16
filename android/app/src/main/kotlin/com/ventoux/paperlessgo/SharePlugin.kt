@@ -37,10 +37,22 @@ internal enum class ShareSource { EXTRA_STREAM, INTENT_DATA, NONE }
 internal val SHARE_URI_SCHEMES = setOf("content", "file")
 
 /**
+ * The subset of [SHARE_URI_SCHEMES] this plugin will actually read. file:// is
+ * excluded: this activity is exported, so any app can hand it a file:// URI naming
+ * a path only this app can read (its own private data), and ContentResolver
+ * opens file:// URIs with no grant check. content:// is safe because the
+ * provider enforces the sender's URI grant. (file:// stays in
+ * [SHARE_URI_SCHEMES] so Flutter's embedding still ignores it as a route.)
+ */
+private val COPYABLE_URI_SCHEMES = setOf("content")
+
+internal fun isCopyableUri(scheme: String?): Boolean = scheme in COPYABLE_URI_SCHEMES
+
+/**
  * Decides where to read a shared file's URI(s) from for a given intent action.
  *
  * - SEND / SEND_MULTIPLE: EXTRA_STREAM (share-sheet flow).
- * - VIEW: Intent.data, but ONLY for content/file schemes — "Open with" from a file
+ * - VIEW: Intent.data, but ONLY for the content scheme — "Open with" from a file
  *   manager (see the ACTION_VIEW intent-filter in AndroidManifest.xml) uses this
  *   action, but so does the paperlessgo:// home-screen-widget deep link, which is
  *   NOT a file and must not be misread as one.
@@ -48,7 +60,7 @@ internal val SHARE_URI_SCHEMES = setOf("content", "file")
  */
 internal fun selectSource(action: String?, dataScheme: String?): ShareSource = when (action) {
     Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE -> ShareSource.EXTRA_STREAM
-    Intent.ACTION_VIEW -> if (dataScheme in SHARE_URI_SCHEMES) {
+    Intent.ACTION_VIEW -> if (isCopyableUri(dataScheme)) {
         ShareSource.INTENT_DATA
     } else {
         ShareSource.NONE
@@ -296,7 +308,7 @@ class SharePlugin(
             }
             ShareSource.INTENT_DATA -> intent.data?.let { listOf(it) } ?: emptyList()
             ShareSource.NONE -> emptyList()
-        }
+        }.filter { isCopyableUri(it.scheme) }
         if (verbose()) Log.d(TAG, "resolveIntent: action=${intent.action} extracted ${uris.size} uri(s): $uris")
 
         val results = JSONArray()

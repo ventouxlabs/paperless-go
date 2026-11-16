@@ -31,8 +31,8 @@ class SharePluginUriSelectionTest {
     }
 
     @Test
-    fun `ACTION_VIEW with file scheme selects INTENT_DATA`() {
-        assertEquals(ShareSource.INTENT_DATA, selectSource(Intent.ACTION_VIEW, "file"))
+    fun `ACTION_VIEW with file scheme is ignored (arbitrary local path, not a grant)`() {
+        assertEquals(ShareSource.NONE, selectSource(Intent.ACTION_VIEW, "file"))
     }
 
     @Test
@@ -53,6 +53,28 @@ class SharePluginUriSelectionTest {
     @Test
     fun `null action is ignored`() {
         assertEquals(ShareSource.NONE, selectSource(null, "content"))
+    }
+}
+
+/**
+ * Regression coverage for [isCopyableUri] — the exported activity must never copy a
+ * file:// URI (any app can name a path the app itself can read, e.g. its private
+ * data), so SEND/SEND_MULTIPLE EXTRA_STREAM URIs are filtered by scheme too.
+ */
+class CopyableSchemeTest {
+    @Test
+    fun `content scheme is copyable`() {
+        assertTrue(isCopyableUri("content"))
+    }
+
+    @Test
+    fun `file scheme is not copyable`() {
+        assertFalse(isCopyableUri("file"))
+    }
+
+    @Test
+    fun `null scheme is not copyable`() {
+        assertFalse(isCopyableUri(null))
     }
 }
 
