@@ -124,8 +124,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 final correspondents = correspondentsAsync.valueOrNull ?? {};
                 final docTypes = docTypesAsync.valueOrNull ?? {};
                 final api = ref.watch(paperlessApiProvider);
-                final lockedIds =
-                    ref.watch(lockedDocumentIdsProvider).valueOrNull ?? const <int>{};
+                final lockedAsync = ref.watch(lockedDocumentIdsProvider);
 
                 if (documents.isEmpty) {
                   return Center(
@@ -173,7 +172,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           documentTypes: docTypes,
                           thumbnailUrl: api.thumbnailUrl(doc.id),
                           authToken: api.authToken,
-                          locked: lockedIds.contains(doc.id),
+                          locked: lockedAsync.isLocked(doc.id),
                           onTap: () => context.push('/documents/${doc.id}'),
                         );
                       },

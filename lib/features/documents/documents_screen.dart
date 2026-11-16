@@ -320,8 +320,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                       }
 
                       final api = ref.watch(paperlessApiProvider);
-                      final lockedIds =
-                          ref.watch(lockedDocumentIdsProvider).valueOrNull ?? const <int>{};
+                      final lockedAsync = ref.watch(lockedDocumentIdsProvider);
 
                       return PaginatedListView(
                         onRefresh: () =>
@@ -393,7 +392,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                                     documentTypes: docTypes,
                                     thumbnailUrl: api.thumbnailUrl(doc.id),
                                     authToken: api.authToken,
-                                    locked: lockedIds.contains(doc.id),
+                                    locked: lockedAsync.isLocked(doc.id),
                                     onTap: _isSelecting
                                         ? () => _toggleSelection(doc.id)
                                         : () => context.push('/documents/${doc.id}'),

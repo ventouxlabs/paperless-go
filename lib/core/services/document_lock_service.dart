@@ -48,3 +48,9 @@ DocumentLockService documentLockService(Ref ref) {
 final lockedDocumentIdsProvider = FutureProvider<Set<int>>((ref) {
   return ref.watch(documentLockServiceProvider).getLockedIds();
 });
+
+extension LockedIdsX on AsyncValue<Set<int>> {
+  /// Fails closed: until the lock set has loaded (or if it errored), every
+  /// document is treated as locked so thumbnails are never leaked.
+  bool isLocked(int id) => valueOrNull?.contains(id) ?? true;
+}

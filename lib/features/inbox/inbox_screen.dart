@@ -300,8 +300,7 @@ class _InboxCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tokens = AppTokens.of(context);
     final api = ref.watch(paperlessApiProvider);
-    final locked = (ref.watch(lockedDocumentIdsProvider).valueOrNull ?? const <int>{})
-        .contains(document.id);
+    final locked = ref.watch(lockedDocumentIdsProvider).isLocked(document.id);
     final correspondents =
         ref.watch(correspondentsProvider).valueOrNull ?? {};
 

@@ -74,8 +74,7 @@ class SimilarScreen extends ConsumerWidget {
           }
 
           final api = ref.watch(paperlessApiProvider);
-          final lockedIds =
-              ref.watch(lockedDocumentIdsProvider).valueOrNull ?? const <int>{};
+          final lockedAsync = ref.watch(lockedDocumentIdsProvider);
           return ListView.builder(
             itemCount: documents.length,
             itemBuilder: (context, index) {
@@ -87,7 +86,7 @@ class SimilarScreen extends ConsumerWidget {
                 documentTypes: docTypes,
                 thumbnailUrl: api.thumbnailUrl(doc.id),
                 authToken: api.authToken,
-                locked: lockedIds.contains(doc.id),
+                locked: lockedAsync.isLocked(doc.id),
                 onTap: () => context.push('/documents/${doc.id}'),
               );
             },
