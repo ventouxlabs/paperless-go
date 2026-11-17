@@ -43,13 +43,44 @@ internal val SHARE_URI_SCHEMES = setOf("content", "file")
  * The subset of [SHARE_URI_SCHEMES] this plugin will actually read. file:// is
  * excluded: this activity is exported, so any app can hand it a file:// URI naming
  * a path only this app can read (its own private data), and ContentResolver
- * opens file:// URIs with no grant check. content:// is safe because the
- * provider enforces the sender's URI grant. (file:// stays in
+ * opens file:// URIs with no grant check. content:// is safe only for other
+ * apps' providers, which enforce the sender's URI grant; our own providers are
+ * rejected separately by [isForeignProvider]. (file:// stays in
  * [SHARE_URI_SCHEMES] so Flutter's embedding still ignores it as a route.)
  */
 private val COPYABLE_URI_SCHEMES = setOf("content")
 
 internal fun isCopyableUri(scheme: String?): Boolean = scheme in COPYABLE_URI_SCHEMES
+
+/**
+ * The authority ContentResolver will actually dispatch to: it strips a
+ * `userId@` prefix before looking the provider up, PackageManager does not.
+ * Resolving the raw authority would let `content://0@<our.authority>/…` slip
+ * past [isForeignProvider] as "unresolvable".
+ */
+internal fun providerAuthority(authority: String?): String? =
+    authority?.substringAfterLast('@')?.takeIf { it.isNotEmpty() }
+
+/**
+ * Whether a content:// URI's provider belongs to another app. Our own
+ * providers (plugin FileProviders etc., exported or not) open for us with no
+ * URI grant, so an exported activity copying one would act as a confused
+ * deputy for whichever app sent the URI. Fails closed: a provider we cannot
+ * resolve is rejected — a real sender's provider is visible to us through the
+ * grant it gave, so only an alias for our own would reach here and still open.
+ */
+internal fun isForeignProvider(providerPackage: String?, ownPackage: String): Boolean =
+    providerPackage != null && providerPackage != ownPackage
+
+/**
+ * A cache file name from the sender-supplied DISPLAY_NAME: only the part after
+ * the last `/` or `\`, and [fallback] when nothing usable remains, so the name
+ * can never step out of (or into a subdirectory of) the cache dir.
+ */
+internal fun safeShareName(displayName: String?, fallback: String): String {
+    val base = displayName?.substringAfterLast('/')?.substringAfterLast('\\')
+    return if (base.isNullOrEmpty() || base == "." || base == "..") fallback else base
+}
 
 /**
  * Decides where to read a shared file's URI(s) from for a given intent action.
@@ -210,9 +241,11 @@ internal fun copyBounded(input: InputStream, output: OutputStream, maxBytes: Lon
  *
  * Any app can fire an implicit ACTION_VIEW at this activity (it's exported with
  * a BROWSABLE intent-filter) — that's the mechanism "Open with" relies on.
- * Android's URI-grant permission model is the trust boundary, not this code;
- * a URI without a valid grant fails in copyToCache() (caught, returns null),
- * it doesn't bypass anything.
+ * Android's URI-grant permission model is the trust boundary for other apps'
+ * providers: a URI without a valid grant fails in copyToCache() (caught,
+ * returns null). It is NOT a boundary for our own providers, which open for us
+ * without a grant, so those are filtered out in resolveIntent()
+ * ([isForeignProvider]).
  */
 class SharePlugin(
     private val activity: Activity,
@@ -357,7 +390,7 @@ class SharePlugin(
             }
             ShareSource.INTENT_DATA -> intent.data?.let { listOf(it) } ?: emptyList()
             ShareSource.NONE -> emptyList()
-        }.filter { isCopyableUri(it.scheme) }
+        }.filter { isCopyableUri(it.scheme) && isForeignProvider(providerPackage(it), activity.packageName) }
         if (verbose()) Log.d(TAG, "resolveIntent: action=${intent.action} extracted ${uris.size} uri(s): $uris")
 
         val results = JSONArray()
@@ -370,7 +403,7 @@ class SharePlugin(
     private fun copyToCache(uri: Uri, intentMimeType: String?): JSONObject? {
         return try {
             val resolver = activity.contentResolver
-            val displayName = queryDisplayName(uri) ?: "shared_${System.currentTimeMillis()}"
+            val displayName = safeShareName(queryDisplayName(uri), "shared_${System.currentTimeMillis()}")
             val mimeType = intentMimeType ?: resolver.getType(uri)
             val targetFile = File(activity.cacheDir, "share_${System.currentTimeMillis()}_$displayName")
             if (verbose()) Log.d(TAG, "copyToCache: uri=$uri displayName=$displayName mimeType=$mimeType target=${targetFile.absolutePath}")
@@ -389,6 +422,10 @@ class SharePlugin(
             Log.e(TAG, "copyToCache failed: ${e.javaClass.simpleName}")
             null
         }
+    }
+
+    private fun providerPackage(uri: Uri): String? = providerAuthority(uri.authority)?.let {
+        activity.packageManager.resolveContentProvider(it, 0)?.packageName
     }
 
     private fun queryDisplayName(uri: Uri): String? {
