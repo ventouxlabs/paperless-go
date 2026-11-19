@@ -13,6 +13,7 @@ import '../../shared/widgets/loading_skeleton.dart';
 import '../../shared/widgets/paginated_list_view.dart';
 import '../../shared/widgets/stamp_chip.dart';
 import '../../shared/save_to_folder_action.dart';
+import '../../core/services/biometric_service.dart';
 import '../../core/services/document_lock_service.dart';
 import '../../core/services/export_destination_service.dart';
 import '../../core/design_tokens.dart';
@@ -23,6 +24,7 @@ import 'bulk_action_bar.dart';
 import 'document_detail_notifier.dart';
 import 'documents_notifier.dart';
 import 'filter_bottom_sheet.dart';
+import 'locked_export_gate.dart';
 import 'saved_view_dialogs.dart';
 import 'saved_view_helpers.dart';
 
@@ -46,6 +48,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   final _selectedIds = <int>{};
   bool get _isSelecting => _selectedIds.isNotEmpty;
   int? _activeSavedViewId;
+  final _biometricService = BiometricService();
 
   void _toggleSelection(int docId) {
     setState(() {
@@ -61,7 +64,37 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     setState(() => _selectedIds.clear());
   }
 
-  Future<void> _shareDocument(BuildContext context, WidgetRef ref, int docId, String title) async {
+  /// Runs the per-document lock check before any file leaves the device.
+  /// Returns null (after telling the user) when a locked document is among
+  /// [docIds] and authentication did not succeed.
+  Future<ExportClearance?> _clearForExport(
+    BuildContext context,
+    WidgetRef ref,
+    Iterable<int> docIds,
+  ) async {
+    final clearance = await clearForExport(
+      documentIds: docIds,
+      loadLockedIds: () =>
+          ref.read(documentLockServiceProvider).getLockedIds(),
+      authenticate: () => _biometricService.authenticate(
+        reason: 'Authenticate to export locked document',
+      ),
+    );
+    if (clearance.allowed) return clearance;
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Authentication required to export a locked document'),
+        ),
+      );
+    }
+    return null;
+  }
+
+  Future<void> _shareDocument(BuildContext context, WidgetRef ref, int docId, String rawTitle) async {
+    final clearance = await _clearForExport(context, ref, [docId]);
+    if (clearance == null || !context.mounted) return;
+    final title = clearance.exportTitleFor(docId, rawTitle);
     try {
       final path = await ref.read(documentDownloadProvider(docId, title).future);
       await Share.shareXFiles([XFile(path)]);
@@ -75,7 +108,10 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   }
 
   Future<void> _saveDocument(
-      BuildContext context, WidgetRef ref, int docId, String title) async {
+      BuildContext context, WidgetRef ref, int docId, String rawTitle) async {
+    final clearance = await _clearForExport(context, ref, [docId]);
+    if (clearance == null || !context.mounted) return;
+    final title = clearance.exportTitleFor(docId, rawTitle);
     try {
       await saveToFolderWithFallback(
         context: context,
@@ -516,6 +552,13 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
       if (confirmed != true || !context.mounted) return;
     }
 
+    final clearance = await _clearForExport(
+      context,
+      ref,
+      selectedDocs.map((d) => d.id),
+    );
+    if (clearance == null || !context.mounted) return;
+
     final downloadFailures = <String>[];
 
     // Downloads happen only once a folder is settled, so cancelling the
@@ -525,20 +568,21 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
       // The picker can outlive this screen; a disposed ref throws an Error.
       if (!context.mounted) return files;
       for (final doc in selectedDocs) {
+        final title = clearance.exportTitleFor(doc.id, doc.title);
         try {
           final path = await ref.read(
-            documentDownloadProvider(doc.id, doc.title).future,
+            documentDownloadProvider(doc.id, title).future,
           );
           files.add((
             path: path,
             name: exportFileNameFor(
-              doc.title,
+              title,
               fallback: 'document_${doc.id}',
               downloadedPath: path,
             ),
           ));
         } on Exception {
-          downloadFailures.add(doc.title);
+          downloadFailures.add(title);
         }
       }
       return files;
@@ -581,17 +625,25 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
       if (confirmed != true || !context.mounted) return;
     }
 
+    final clearance = await _clearForExport(
+      context,
+      ref,
+      selectedDocs.map((d) => d.id),
+    );
+    if (clearance == null || !context.mounted) return;
+
     final paths = <String>[];
     final failures = <String>[];
 
     for (final doc in selectedDocs) {
+      final title = clearance.exportTitleFor(doc.id, doc.title);
       try {
         final path = await ref.read(
-          documentDownloadProvider(doc.id, doc.title).future,
+          documentDownloadProvider(doc.id, title).future,
         );
         paths.add(path);
       } catch (_) {
-        failures.add(doc.title);
+        failures.add(title);
       }
     }
 
