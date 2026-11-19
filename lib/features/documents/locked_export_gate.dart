@@ -51,11 +51,9 @@ Future<ExportClearance> _authenticated(
   Set<int> locked,
   Future<bool> Function() authenticate,
 ) async {
-  bool ok;
   try {
-    ok = await authenticate();
+    return ExportClearance._(allowed: await authenticate(), lockedIds: locked);
   } on Exception {
-    ok = false;
+    return ExportClearance._(allowed: false, lockedIds: locked);
   }
-  return ExportClearance._(allowed: ok, lockedIds: locked);
 }

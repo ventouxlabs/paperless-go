@@ -91,7 +91,8 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     return null;
   }
 
-  Future<void> _shareDocument(BuildContext context, WidgetRef ref, int docId, String rawTitle) async {
+  Future<void> _shareDocument(
+      BuildContext context, WidgetRef ref, int docId, String rawTitle) async {
     final clearance = await _clearForExport(context, ref, [docId]);
     if (clearance == null || !context.mounted) return;
     final title = clearance.exportTitleFor(docId, rawTitle);
