@@ -9,6 +9,7 @@ import '../../core/design_tokens.dart';
 import '../../core/models/correspondent.dart';
 import '../../core/models/document.dart';
 import '../../core/models/document_type.dart';
+import '../../core/services/biometric_service.dart';
 import '../../core/services/document_lock_service.dart';
 import '../../shared/widgets/document_card.dart' show lockedDocumentTitle;
 import '../../shared/widgets/metadata_dropdown.dart';
@@ -130,26 +131,6 @@ class _CardStackState extends ConsumerState<_CardStack>
   Offset _drag = Offset.zero;
   bool _busy = false;
 
-  /// Ids the user skipped this session, oldest first. Skipped cards are
-  /// shown after every non-skipped one (local queue only; nothing is
-  /// written to the server).
-  List<int> _skippedIds = const [];
-
-  List<Document> _ordered(List<Document> docs) {
-    if (_skippedIds.isEmpty) return docs;
-    final byId = {for (final d in docs) d.id: d};
-    final skipped = [
-      for (final id in _skippedIds)
-        if (byId.containsKey(id)) byId[id]!,
-    ];
-    final skippedSet = skipped.map((d) => d.id).toSet();
-    return [
-      for (final d in docs)
-        if (!skippedSet.contains(d.id)) d,
-      ...skipped,
-    ];
-  }
-
   @override
   void initState() {
     super.initState();
@@ -167,18 +148,12 @@ class _CardStackState extends ConsumerState<_CardStack>
 
   @override
   Widget build(BuildContext context) {
-    final docs = _ordered(widget.documents);
+    final docs = widget.documents;
     final active = docs.first;
 
     // Keep the queue topped up while sorting.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      // Count only cards the user can still file; skipped or locked cards
-      // never leave the queue, so counting them would stall paging.
-      final actionable = docs
-          .where((d) => !_skippedIds.contains(d.id) && !_isLocked(d))
-          .length;
-      if (actionable < 5) {
+      if (docs.length < 5 && mounted) {
         ref.read(inboxNotifierProvider.notifier).loadMore();
       }
     });
@@ -229,35 +204,29 @@ class _CardStackState extends ConsumerState<_CardStack>
     );
   }
 
-  /// Fails closed (see [LockedIdsX.isLocked]): filing or editing a locked
-  /// document would write metadata the masked card never showed, and the
-  /// edit sheet would reveal the real title and values.
+  /// Fails closed (see [LockedIdsX.isLocked]).
   bool _isLocked(Document doc) =>
       ref.read(lockedDocumentIdsProvider).isLocked(doc.id);
 
-  /// Moves [doc] to the back of the local queue so the cards behind it stay
-  /// reachable.
-  void _skip(Document doc) {
-    if (_busy) return;
-    final width = MediaQuery.sizeOf(context).width;
-    _animateTo(Offset(-width * 1.2, 0), then: () {
-      if (!mounted) return;
-      setState(() {
-        _skippedIds = [..._skippedIds.where((id) => id != doc.id), doc.id];
-        _drag = Offset.zero;
-      });
-    });
+  /// Locked documents need the same biometric check as the detail screen
+  /// before they can be filed or edited: filing writes metadata the masked
+  /// card never showed, and the edit sheet reveals the real values.
+  /// Returns true when [doc] is unlocked or the user authenticated.
+  Future<bool> _authorize(Document doc) async {
+    if (!_isLocked(doc)) return true;
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await ref
+        .read(biometricServiceProvider)
+        .authenticate(reason: 'Authenticate to open locked document');
+    if (!ok && mounted) {
+      messenger.showSnackBar(const SnackBar(
+        content: Text('Authentication required for locked documents'),
+      ));
+    }
+    return ok && mounted && widget.documents.any((d) => d.id == doc.id);
   }
 
   void _onPanEnd(Document active) {
-    if (_isLocked(active)) {
-      if (_drag.dx < -_swipeThreshold) {
-        _skip(active);
-      } else {
-        _snapBack();
-      }
-      return;
-    }
     if (_drag.dx > _swipeThreshold) {
       _accept(active);
     } else if (_drag.dx < -_swipeThreshold) {
@@ -281,18 +250,27 @@ class _CardStackState extends ConsumerState<_CardStack>
   void _snapBack() => _animateTo(Offset.zero);
 
   Future<void> _accept(Document doc) async {
-    if (_busy || _isLocked(doc)) return;
+    if (_busy) return;
     setState(() => _busy = true);
+    final locked = _isLocked(doc);
+    if (locked && !await _authorize(doc)) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      _snapBack();
+      return;
+    }
+    if (!mounted) return;
     final width = MediaQuery.sizeOf(context).width;
     _animateTo(Offset(width * 1.2, 0));
 
-    final suggestions = ref
-            .read(inboxSuggestionsProvider(doc))
-            .valueOrNull ??
-        const MetadataSuggestions();
     final notifier = ref.read(inboxNotifierProvider.notifier);
     final messenger = ScaffoldMessenger.of(context);
+    final shownTitle = locked ? lockedDocumentTitle : doc.title;
     try {
+      final suggestions = locked
+          ? await _loadSuggestions(doc)
+          : ref.read(inboxSuggestionsProvider(doc)).valueOrNull ??
+              const MetadataSuggestions();
       final previous = await notifier.acceptSuggestions(doc, suggestions);
       if (!mounted) return;
       setState(() {
@@ -301,7 +279,7 @@ class _CardStackState extends ConsumerState<_CardStack>
       });
       if (previous != null) {
         messenger.showSnackBar(SnackBar(
-          content: Text('Filed "${doc.title}"'),
+          content: Text('Filed "$shownTitle"'),
           // Flutter defaults an action-bearing SnackBar to persist: true
           // (snack_bar.dart: `persist = persist ?? action != null`) — without
           // this, the auto-dismiss timer fires but early-returns before
@@ -325,9 +303,23 @@ class _CardStackState extends ConsumerState<_CardStack>
     }
   }
 
-  void _openEditSheet(Document doc) {
-    if (_isLocked(doc)) return;
-    showModalBottomSheet(
+  /// A locked card never renders its suggestion chips, so nothing keeps the
+  /// auto-dispose provider alive; hold a listener while it computes so the
+  /// accept files the same suggestions an unlocked card would.
+  Future<MetadataSuggestions> _loadSuggestions(Document doc) async {
+    final sub = ref.listenManual(
+        inboxSuggestionsProvider(doc), (previous, next) {});
+    try {
+      return await ref.read(inboxSuggestionsProvider(doc).future);
+    } finally {
+      sub.close();
+    }
+  }
+
+  Future<void> _openEditSheet(Document doc) async {
+    if (!await _authorize(doc)) return;
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (_) => _EditSheet(document: doc),
@@ -439,7 +431,7 @@ class _InboxCard extends ConsumerWidget {
                   child: Row(
                     children: [
                       TextButton.icon(
-                        onPressed: locked ? null : onEdit,
+                        onPressed: onEdit,
                         icon: Icon(Icons.edit_outlined,
                             size: 18, color: tokens.stamp),
                         label: const Text('Edit'),
@@ -451,7 +443,7 @@ class _InboxCard extends ConsumerWidget {
                       ),
                       Expanded(
                         child: FilledButton.icon(
-                          onPressed: locked ? null : onAccept,
+                          onPressed: onAccept,
                           icon: const Icon(Icons.check, size: 18),
                           label: const Text('Accept'),
                         ),
