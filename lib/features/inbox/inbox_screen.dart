@@ -9,7 +9,9 @@ import '../../core/design_tokens.dart';
 import '../../core/models/correspondent.dart';
 import '../../core/models/document.dart';
 import '../../core/models/document_type.dart';
+import '../../core/services/biometric_service.dart';
 import '../../core/services/document_lock_service.dart';
+import '../../shared/widgets/document_card.dart' show lockedDocumentTitle;
 import '../../shared/widgets/metadata_dropdown.dart';
 import '../../shared/widgets/stamp_chip.dart';
 import '../scanner/processing/metadata_matcher.dart';
@@ -202,6 +204,28 @@ class _CardStackState extends ConsumerState<_CardStack>
     );
   }
 
+  /// Fails closed (see [LockedIdsX.isLocked]).
+  bool _isLocked(Document doc) =>
+      ref.read(lockedDocumentIdsProvider).isLocked(doc.id);
+
+  /// Locked documents need the same biometric check as the detail screen
+  /// before they can be filed or edited: filing writes metadata the masked
+  /// card never showed, and the edit sheet reveals the real values.
+  /// Returns true when [doc] is unlocked or the user authenticated.
+  Future<bool> _authorize(Document doc) async {
+    if (!_isLocked(doc)) return true;
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await ref
+        .read(biometricServiceProvider)
+        .authenticate(reason: 'Authenticate to open locked document');
+    if (!ok && mounted) {
+      messenger.showSnackBar(const SnackBar(
+        content: Text('Authentication required for locked documents'),
+      ));
+    }
+    return ok && mounted && widget.documents.any((d) => d.id == doc.id);
+  }
+
   void _onPanEnd(Document active) {
     if (_drag.dx > _swipeThreshold) {
       _accept(active);
@@ -228,16 +252,25 @@ class _CardStackState extends ConsumerState<_CardStack>
   Future<void> _accept(Document doc) async {
     if (_busy) return;
     setState(() => _busy = true);
+    final locked = _isLocked(doc);
+    if (locked && !await _authorize(doc)) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      _snapBack();
+      return;
+    }
+    if (!mounted) return;
     final width = MediaQuery.sizeOf(context).width;
     _animateTo(Offset(width * 1.2, 0));
 
-    final suggestions = ref
-            .read(inboxSuggestionsProvider(doc))
-            .valueOrNull ??
-        const MetadataSuggestions();
     final notifier = ref.read(inboxNotifierProvider.notifier);
     final messenger = ScaffoldMessenger.of(context);
+    final shownTitle = locked ? lockedDocumentTitle : doc.title;
     try {
+      final suggestions = locked
+          ? await _loadSuggestions(doc)
+          : ref.read(inboxSuggestionsProvider(doc)).valueOrNull ??
+              const MetadataSuggestions();
       final previous = await notifier.acceptSuggestions(doc, suggestions);
       if (!mounted) return;
       setState(() {
@@ -246,7 +279,7 @@ class _CardStackState extends ConsumerState<_CardStack>
       });
       if (previous != null) {
         messenger.showSnackBar(SnackBar(
-          content: Text('Filed "${doc.title}"'),
+          content: Text('Filed "$shownTitle"'),
           // Flutter defaults an action-bearing SnackBar to persist: true
           // (snack_bar.dart: `persist = persist ?? action != null`) — without
           // this, the auto-dismiss timer fires but early-returns before
@@ -270,8 +303,23 @@ class _CardStackState extends ConsumerState<_CardStack>
     }
   }
 
-  void _openEditSheet(Document doc) {
-    showModalBottomSheet(
+  /// A locked card never renders its suggestion chips, so nothing keeps the
+  /// auto-dispose provider alive; hold a listener while it computes so the
+  /// accept files the same suggestions an unlocked card would.
+  Future<MetadataSuggestions> _loadSuggestions(Document doc) async {
+    final sub = ref.listenManual(
+        inboxSuggestionsProvider(doc), (previous, next) {});
+    try {
+      return await ref.read(inboxSuggestionsProvider(doc).future);
+    } finally {
+      sub.close();
+    }
+  }
+
+  Future<void> _openEditSheet(Document doc) async {
+    if (!await _authorize(doc)) return;
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (_) => _EditSheet(document: doc),
@@ -304,12 +352,15 @@ class _InboxCard extends ConsumerWidget {
     final correspondents =
         ref.watch(correspondentsProvider).valueOrNull ?? {};
 
-    final meta = <String>[
-      if (document.correspondent != null)
-        correspondents[document.correspondent]?.name ?? '',
-      if (document.created != null)
-        MaterialLocalizations.of(context).formatMediumDate(document.created!),
-    ].where((s) => s.isNotEmpty).join(' · ');
+    final meta = locked
+        ? ''
+        : <String>[
+            if (document.correspondent != null)
+              correspondents[document.correspondent]?.name ?? '',
+            if (document.created != null)
+              MaterialLocalizations.of(context)
+                  .formatMediumDate(document.created!),
+          ].where((s) => s.isNotEmpty).join(' · ');
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -355,7 +406,7 @@ class _InboxCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      document.title,
+                      locked ? lockedDocumentTitle : document.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium,
@@ -369,7 +420,7 @@ class _InboxCard extends ConsumerWidget {
                               ?.copyWith(color: tokens.inkSoft)),
                     ],
                     const SizedBox(height: Spacing.sm),
-                    if (!dimmed) _SuggestionChips(document: document),
+                    if (!dimmed && !locked) _SuggestionChips(document: document),
                   ],
                 ),
               ),
@@ -513,7 +564,10 @@ class _EditSheetState extends ConsumerState<_EditSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(widget.document.title,
+          Text(
+              ref.watch(lockedDocumentIdsProvider).isLocked(widget.document.id)
+                  ? lockedDocumentTitle
+                  : widget.document.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.titleLarge),
