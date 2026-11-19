@@ -10,6 +10,7 @@ import '../../core/models/correspondent.dart';
 import '../../core/models/document.dart';
 import '../../core/models/document_type.dart';
 import '../../core/services/document_lock_service.dart';
+import '../../shared/widgets/document_card.dart' show lockedDocumentTitle;
 import '../../shared/widgets/metadata_dropdown.dart';
 import '../../shared/widgets/stamp_chip.dart';
 import '../scanner/processing/metadata_matcher.dart';
@@ -304,12 +305,15 @@ class _InboxCard extends ConsumerWidget {
     final correspondents =
         ref.watch(correspondentsProvider).valueOrNull ?? {};
 
-    final meta = <String>[
-      if (document.correspondent != null)
-        correspondents[document.correspondent]?.name ?? '',
-      if (document.created != null)
-        MaterialLocalizations.of(context).formatMediumDate(document.created!),
-    ].where((s) => s.isNotEmpty).join(' · ');
+    final meta = locked
+        ? ''
+        : <String>[
+            if (document.correspondent != null)
+              correspondents[document.correspondent]?.name ?? '',
+            if (document.created != null)
+              MaterialLocalizations.of(context)
+                  .formatMediumDate(document.created!),
+          ].where((s) => s.isNotEmpty).join(' · ');
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -355,7 +359,7 @@ class _InboxCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      document.title,
+                      locked ? lockedDocumentTitle : document.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium,
@@ -369,7 +373,7 @@ class _InboxCard extends ConsumerWidget {
                               ?.copyWith(color: tokens.inkSoft)),
                     ],
                     const SizedBox(height: Spacing.sm),
-                    if (!dimmed) _SuggestionChips(document: document),
+                    if (!dimmed && !locked) _SuggestionChips(document: document),
                   ],
                 ),
               ),
