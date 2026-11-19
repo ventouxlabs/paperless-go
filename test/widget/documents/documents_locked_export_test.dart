@@ -15,6 +15,7 @@ import 'package:paperless_go/features/documents/document_detail_notifier.dart';
 import 'package:paperless_go/features/documents/documents_notifier.dart';
 import 'package:paperless_go/features/documents/documents_screen.dart';
 import 'package:paperless_go/features/upload_queue/upload_queue_notifier.dart';
+import 'package:paperless_go/shared/widgets/document_card.dart';
 
 const _lockedA = Document(id: 1, title: 'Medical report');
 const _lockedB = Document(id: 2, title: 'Payslip');
@@ -64,13 +65,13 @@ class _FakeBiometrics implements BiometricService {
 /// Records every download the screen asks for, by (id, title it names the
 /// file after). Each document can be asked for under its real or masked name.
 List<Override> _downloadOverrides(List<(int, String)> downloads) => [
-      for (final doc in const [_lockedA, _lockedB])
-        for (final title in [doc.title, 'document_${doc.id}'])
-          documentDownloadProvider(doc.id, title).overrideWith((ref) async {
-            downloads.add((doc.id, title));
-            return '/nonexistent/${doc.id}_$title.pdf';
-          }),
-    ];
+  for (final doc in const [_lockedA, _lockedB])
+    for (final title in [doc.title, 'document_${doc.id}'])
+      documentDownloadProvider(doc.id, title).overrideWith((ref) async {
+        downloads.add((doc.id, title));
+        return '/nonexistent/${doc.id}_$title.pdf';
+      }),
+];
 
 Future<void> _pump(
   WidgetTester tester, {
@@ -99,63 +100,71 @@ Future<void> _pump(
   await tester.pumpAndSettle();
 }
 
-Future<void> _longPressMenu(WidgetTester tester, String title, String item) async {
-  await tester.longPress(find.text(title).first);
+/// Locked cards show a placeholder title, so cards are found by position.
+Finder _card(int index) => find.byType(DocumentCard).at(index);
+
+Future<void> _longPressMenu(WidgetTester tester, int index, String item) async {
+  await tester.longPress(_card(index));
   await tester.pumpAndSettle();
   await tester.tap(find.text(item).last);
   await tester.pumpAndSettle();
 }
 
 Future<void> _selectBoth(WidgetTester tester) async {
-  await _longPressMenu(tester, _lockedA.title, 'Select');
-  await tester.tap(find.text(_lockedB.title).first);
+  await _longPressMenu(tester, 0, 'Select');
+  await tester.tap(_card(1));
   await tester.pumpAndSettle();
 }
 
 const _denied = 'Authentication required to export a locked document';
 
 void main() {
-  testWidgets('long-press Share of a locked document: denied auth, no download',
-      (tester) async {
-    final bio = _FakeBiometrics(succeed: false);
-    final downloads = <(int, String)>[];
-    await _pump(tester, biometrics: bio, downloads: downloads);
+  testWidgets(
+    'long-press Share of a locked document: denied auth, no download',
+    (tester) async {
+      final bio = _FakeBiometrics(succeed: false);
+      final downloads = <(int, String)>[];
+      await _pump(tester, biometrics: bio, downloads: downloads);
 
-    await _longPressMenu(tester, _lockedA.title, 'Share');
+      await _longPressMenu(tester, 0, 'Share');
 
-    expect(bio.prompts, 1);
-    expect(downloads, isEmpty);
-    expect(find.text(_denied), findsOneWidget);
-  });
+      expect(bio.prompts, 1);
+      expect(downloads, isEmpty);
+      expect(find.text(_denied), findsOneWidget);
+    },
+  );
 
-  testWidgets('long-press Share of a locked document: masked name after auth',
-      (tester) async {
+  testWidgets('long-press Share of a locked document: masked name after auth', (
+    tester,
+  ) async {
     final bio = _FakeBiometrics(succeed: true);
     final downloads = <(int, String)>[];
     await _pump(tester, biometrics: bio, downloads: downloads);
 
-    await _longPressMenu(tester, _lockedA.title, 'Share');
+    await _longPressMenu(tester, 0, 'Share');
 
     expect(bio.prompts, 1);
     expect(downloads, [(1, 'document_1')]);
   });
 
   testWidgets(
-      'long-press Save to folder of a locked document: denied auth, no download',
-      (tester) async {
-    final bio = _FakeBiometrics(succeed: false);
-    final downloads = <(int, String)>[];
-    await _pump(tester, biometrics: bio, downloads: downloads);
+    'long-press Save to folder of a locked document: denied auth, no download',
+    (tester) async {
+      final bio = _FakeBiometrics(succeed: false);
+      final downloads = <(int, String)>[];
+      await _pump(tester, biometrics: bio, downloads: downloads);
 
-    await _longPressMenu(tester, _lockedA.title, 'Save to folder');
+      await _longPressMenu(tester, 0, 'Save to folder');
 
-    expect(bio.prompts, 1);
-    expect(downloads, isEmpty);
-    expect(find.text(_denied), findsOneWidget);
-  });
+      expect(bio.prompts, 1);
+      expect(downloads, isEmpty);
+      expect(find.text(_denied), findsOneWidget);
+    },
+  );
 
-  testWidgets('bulk Share with locked documents: denied auth, no download',
-      (tester) async {
+  testWidgets('bulk Share with locked documents: denied auth, no download', (
+    tester,
+  ) async {
     final bio = _FakeBiometrics(succeed: false);
     final downloads = <(int, String)>[];
     await _pump(tester, biometrics: bio, downloads: downloads);
@@ -169,8 +178,9 @@ void main() {
     expect(find.text(_denied), findsOneWidget);
   });
 
-  testWidgets('bulk Share with locked documents: one prompt, masked names',
-      (tester) async {
+  testWidgets('bulk Share with locked documents: one prompt, masked names', (
+    tester,
+  ) async {
     final bio = _FakeBiometrics(succeed: true);
     final downloads = <(int, String)>[];
     await _pump(tester, biometrics: bio, downloads: downloads);
@@ -183,18 +193,20 @@ void main() {
     expect(downloads, [(1, 'document_1'), (2, 'document_2')]);
   });
 
-  testWidgets('bulk Save to folder with locked documents: denied auth, no download',
-      (tester) async {
-    final bio = _FakeBiometrics(succeed: false);
-    final downloads = <(int, String)>[];
-    await _pump(tester, biometrics: bio, downloads: downloads);
+  testWidgets(
+    'bulk Save to folder with locked documents: denied auth, no download',
+    (tester) async {
+      final bio = _FakeBiometrics(succeed: false);
+      final downloads = <(int, String)>[];
+      await _pump(tester, biometrics: bio, downloads: downloads);
 
-    await _selectBoth(tester);
-    await tester.tap(find.byTooltip('Save to folder'));
-    await tester.pumpAndSettle();
+      await _selectBoth(tester);
+      await tester.tap(find.byTooltip('Save to folder'));
+      await tester.pumpAndSettle();
 
-    expect(bio.prompts, 1);
-    expect(downloads, isEmpty);
-    expect(find.text(_denied), findsOneWidget);
-  });
+      expect(bio.prompts, 1);
+      expect(downloads, isEmpty);
+      expect(find.text(_denied), findsOneWidget);
+    },
+  );
 }
