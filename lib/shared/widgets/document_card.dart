@@ -11,6 +11,9 @@ import '../../core/models/document_type.dart';
 import '../../core/models/tag.dart';
 import 'tag_chip.dart';
 
+/// Placeholder shown in lists and search in place of a locked document's title.
+const String lockedDocumentTitle = 'Locked document';
+
 class DocumentCard extends StatelessWidget {
   final Document document;
   final Map<int, Tag> tags;
@@ -22,7 +25,8 @@ class DocumentCard extends StatelessWidget {
   final String? authToken;
 
   /// When true the document is behind a per-document lock, so the thumbnail
-  /// (a rendering of its first page) is replaced with a lock placeholder.
+  /// (a rendering of its first page) is replaced with a lock placeholder and
+  /// the title, subtitle and tags are masked.
   final bool locked;
 
   /// Optional trailing widget (e.g. an actions menu) rendered at the end of the
@@ -58,16 +62,22 @@ class DocumentCard extends StatelessWidget {
         .whereType<Tag>()
         .toList();
 
-    final subtitle = [
-      if (correspondent != null) correspondent.name,
-      if (docType != null) docType.name,
-      if (document.created != null) DateFormat.yMMMd().format(document.created!),
-    ].join(' · ');
+    final shownTitle = locked ? lockedDocumentTitle : document.title;
+    final shownTags = locked ? const <Tag>[] : docTags;
+
+    final subtitle = locked
+        ? ''
+        : [
+            if (correspondent != null) correspondent.name,
+            if (docType != null) docType.name,
+            if (document.created != null)
+              DateFormat.yMMMd().format(document.created!),
+          ].join(' · ');
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.xs),
       child: Semantics(
-        label: document.title.isNotEmpty ? document.title : 'Untitled document',
+        label: shownTitle.isNotEmpty ? shownTitle : 'Untitled document',
         button: true,
         onTapHint: 'Open document',
         onLongPressHint: 'Show actions',
@@ -134,7 +144,7 @@ class DocumentCard extends StatelessWidget {
                   children: [
                     // Title
                     Text(
-                      document.title,
+                      shownTitle,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
@@ -155,20 +165,20 @@ class DocumentCard extends StatelessWidget {
                     ],
 
                     // Tags
-                    if (docTags.isNotEmpty) ...[
+                    if (shownTags.isNotEmpty) ...[
                       const SizedBox(height: Spacing.sm),
                       Wrap(
                         spacing: Spacing.xs,
                         runSpacing: Spacing.xs,
                         children: [
-                          ...docTags.take(_maxVisibleTags).map(
+                          ...shownTags.take(_maxVisibleTags).map(
                             (tag) => ConstrainedBox(
                               constraints: const BoxConstraints(maxWidth: 120),
                               child: TagChip(tag: tag),
                             ),
                           ),
-                          if (docTags.length > _maxVisibleTags)
-                            TagOverflowChip(count: docTags.length - _maxVisibleTags),
+                          if (shownTags.length > _maxVisibleTags)
+                            TagOverflowChip(count: shownTags.length - _maxVisibleTags),
                         ],
                       ),
                     ],
