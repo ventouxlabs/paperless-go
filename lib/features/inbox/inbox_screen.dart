@@ -130,6 +130,26 @@ class _CardStackState extends ConsumerState<_CardStack>
   Offset _drag = Offset.zero;
   bool _busy = false;
 
+  /// Ids the user skipped this session, oldest first. Skipped cards are
+  /// shown after every non-skipped one (local queue only; nothing is
+  /// written to the server).
+  List<int> _skippedIds = const [];
+
+  List<Document> _ordered(List<Document> docs) {
+    if (_skippedIds.isEmpty) return docs;
+    final byId = {for (final d in docs) d.id: d};
+    final skipped = [
+      for (final id in _skippedIds)
+        if (byId.containsKey(id)) byId[id]!,
+    ];
+    final skippedSet = skipped.map((d) => d.id).toSet();
+    return [
+      for (final d in docs)
+        if (!skippedSet.contains(d.id)) d,
+      ...skipped,
+    ];
+  }
+
   @override
   void initState() {
     super.initState();
@@ -147,7 +167,7 @@ class _CardStackState extends ConsumerState<_CardStack>
 
   @override
   Widget build(BuildContext context) {
-    final docs = widget.documents;
+    final docs = _ordered(widget.documents);
     final active = docs.first;
 
     // Keep the queue topped up while sorting.
@@ -209,9 +229,27 @@ class _CardStackState extends ConsumerState<_CardStack>
   bool _isLocked(Document doc) =>
       ref.read(lockedDocumentIdsProvider).isLocked(doc.id);
 
+  /// Moves [doc] to the back of the local queue so the cards behind it stay
+  /// reachable.
+  void _skip(Document doc) {
+    if (_busy) return;
+    final width = MediaQuery.sizeOf(context).width;
+    _animateTo(Offset(-width * 1.2, 0), then: () {
+      if (!mounted) return;
+      setState(() {
+        _skippedIds = [..._skippedIds.where((id) => id != doc.id), doc.id];
+        _drag = Offset.zero;
+      });
+    });
+  }
+
   void _onPanEnd(Document active) {
     if (_isLocked(active)) {
-      _snapBack();
+      if (_drag.dx < -_swipeThreshold) {
+        _skip(active);
+      } else {
+        _snapBack();
+      }
       return;
     }
     if (_drag.dx > _swipeThreshold) {

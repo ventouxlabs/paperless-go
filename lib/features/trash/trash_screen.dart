@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../core/models/document.dart';
+import '../../core/services/document_lock_service.dart';
+import '../../shared/widgets/document_card.dart' show lockedDocumentTitle;
 import 'trash_notifier.dart';
 import '../../shared/widgets/paginated_list_view.dart';
 
@@ -129,13 +131,15 @@ class _TrashScreenState extends ConsumerState<TrashScreen> {
                 itemBuilder: (context, index) {
                   final doc = data.documents[index];
                   final isSelected = _selectedIds.contains(doc.id);
+                  final locked =
+                      ref.watch(lockedDocumentIdsProvider).isLocked(doc.id);
 
                   return ListTile(
                     leading: isSelected
                         ? Icon(Icons.check_circle,
                             color: Theme.of(context).colorScheme.primary)
                         : const Icon(Icons.description_outlined),
-                    title: Text(doc.title,
+                    title: Text(locked ? lockedDocumentTitle : doc.title,
                         maxLines: 1, overflow: TextOverflow.ellipsis),
                     subtitle: Text(trashDeletedLabel(doc)),
                     selected: isSelected,

@@ -16,8 +16,11 @@ import 'package:paperless_go/shared/widgets/document_card.dart'
 class _FakeInbox extends InboxNotifier {
   @override
   Future<InboxState> build() async => const InboxState(
-        documents: [Document(id: 1, title: 'Secret')],
-        totalCount: 1,
+        documents: [
+          Document(id: 1, title: 'Secret'),
+          Document(id: 2, title: 'Second'),
+        ],
+        totalCount: 2,
         hasMore: false,
       );
 }
@@ -72,6 +75,23 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Save'), findsNothing);
+      expect(find.text('Secret'), findsNothing);
+    });
+
+    testWidgets('a left swipe skips it so the next document is reachable',
+        (tester) async {
+      await _pump(tester, locked: {1});
+      await tester.pumpAndSettle();
+
+      await tester.fling(
+          find.text(lockedDocumentTitle), const Offset(-400, 0), 1000);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Second'), findsWidgets);
+      final accept = tester.widget<ButtonStyleButton>(find.ancestor(
+          of: find.text('Accept'),
+          matching: find.byWidgetPredicate((w) => w is ButtonStyleButton)));
+      expect(accept.onPressed, isNotNull);
       expect(find.text('Secret'), findsNothing);
     });
 
