@@ -15,6 +15,13 @@ class BulkActionBar extends ConsumerWidget {
   final VoidCallback onShare;
   final VoidCallback onSave;
 
+  /// Runs the per-document lock check before a merge. A merge copies every
+  /// selected document's content into a new document whose id is not
+  /// locked, so a locked document must not be merged without the same
+  /// biometric check as opening it. Returns false when the merge must not go
+  /// ahead (the callee tells the user why).
+  final Future<bool> Function(List<int> documentIds) clearForMerge;
+
   const BulkActionBar({
     super.key,
     required this.selectedIds,
@@ -22,6 +29,7 @@ class BulkActionBar extends ConsumerWidget {
     required this.onRefresh,
     required this.onShare,
     required this.onSave,
+    required this.clearForMerge,
   });
 
   @override
@@ -341,9 +349,11 @@ class BulkActionBar extends ConsumerWidget {
     );
 
     if (confirmed == true && context.mounted) {
+      final docIds = selectedIds.toList();
+      if (!await clearForMerge(docIds)) return;
+      if (!context.mounted) return;
       try {
         final api = ref.read(paperlessApiProvider);
-        final docIds = selectedIds.toList();
         await api.bulkEdit(
           documents: docIds,
           method: 'merge',
