@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/services.dart';
@@ -778,7 +780,10 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
                   method: 'split',
                   parameters: {'pages': input},
                 );
-            ref.invalidate(documentsNotifierProvider);
+            // refresh() keeps the user's filter; invalidate would reset it.
+            if (ref.exists(documentsNotifierProvider)) {
+              unawaited(ref.read(documentsNotifierProvider.notifier).refresh());
+            }
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Document split successfully')),
@@ -912,7 +917,10 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
           try {
             final api = ref.read(paperlessApiProvider);
             await api.trashDocuments([documentId]);
-            ref.invalidate(documentsNotifierProvider);
+            // refresh() keeps the user's filter; invalidate would reset it.
+            if (ref.exists(documentsNotifierProvider)) {
+              unawaited(ref.read(documentsNotifierProvider.notifier).refresh());
+            }
             ref.invalidate(inboxNotifierProvider);
             if (context.mounted) context.pop();
           } catch (e) {

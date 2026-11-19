@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../core/api/api_providers.dart';
 import '../../core/models/document.dart';
@@ -120,7 +122,10 @@ class TrashNotifier extends _$TrashNotifier {
       await api.restoreFromTrash(ids);
       // Restored documents belong in these lists again; both stay mounted
       // under the pushed /trash route, so rebuild them now.
-      ref.invalidate(documentsNotifierProvider);
+      // refresh() keeps the user's filter; invalidate would reset it.
+      if (ref.exists(documentsNotifierProvider)) {
+        unawaited(ref.read(documentsNotifierProvider.notifier).refresh());
+      }
       ref.invalidate(inboxNotifierProvider);
       await refresh();
       return null;
