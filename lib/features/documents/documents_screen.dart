@@ -37,7 +37,10 @@ import 'saved_view_helpers.dart';
 /// horizontal carousel of stamp chips at the top of the list, and active
 /// filters render as dismissible stamp pills below the omnibox.
 class DocumentsScreen extends ConsumerStatefulWidget {
-  const DocumentsScreen({super.key});
+  /// Biometric check for exporting locked documents; tests pass a fake.
+  final BiometricService? biometrics;
+
+  const DocumentsScreen({super.key, this.biometrics});
 
   @override
   ConsumerState<DocumentsScreen> createState() => _DocumentsScreenState();
@@ -48,7 +51,8 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   final _selectedIds = <int>{};
   bool get _isSelecting => _selectedIds.isNotEmpty;
   int? _activeSavedViewId;
-  final _biometricService = BiometricService();
+  late final BiometricService _biometricService =
+      widget.biometrics ?? BiometricService();
 
   void _toggleSelection(int docId) {
     setState(() {
