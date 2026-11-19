@@ -50,6 +50,7 @@ android {
         // the placeholder only on debug/release left profile with an unresolved
         // ${appLabel} and hard-failed manifest merging on `flutter build --profile`.
         manifestPlaceholders["appLabel"] = "Paperless Go"
+        manifestPlaceholders["appAuthRedirectScheme"] = "com.ventouxlabs.paperlessgo"
     }
 
     signingConfigs {

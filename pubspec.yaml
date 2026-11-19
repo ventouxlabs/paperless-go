@@ -23,6 +23,9 @@ dependencies:
   # Secure Storage
   flutter_secure_storage: ^9.2.4
 
+  # SSO login (OIDC, PKCE, system browser)
+  flutter_appauth: 12.1.0
+
   # UI
   cached_network_image: ^3.4.1
   flutter_cache_manager: ^3.4.1
