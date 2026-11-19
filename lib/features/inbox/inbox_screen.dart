@@ -203,7 +203,17 @@ class _CardStackState extends ConsumerState<_CardStack>
     );
   }
 
+  /// Fails closed (see [LockedIdsX.isLocked]): filing or editing a locked
+  /// document would write metadata the masked card never showed, and the
+  /// edit sheet would reveal the real title and values.
+  bool _isLocked(Document doc) =>
+      ref.read(lockedDocumentIdsProvider).isLocked(doc.id);
+
   void _onPanEnd(Document active) {
+    if (_isLocked(active)) {
+      _snapBack();
+      return;
+    }
     if (_drag.dx > _swipeThreshold) {
       _accept(active);
     } else if (_drag.dx < -_swipeThreshold) {
@@ -227,7 +237,7 @@ class _CardStackState extends ConsumerState<_CardStack>
   void _snapBack() => _animateTo(Offset.zero);
 
   Future<void> _accept(Document doc) async {
-    if (_busy) return;
+    if (_busy || _isLocked(doc)) return;
     setState(() => _busy = true);
     final width = MediaQuery.sizeOf(context).width;
     _animateTo(Offset(width * 1.2, 0));
@@ -272,6 +282,7 @@ class _CardStackState extends ConsumerState<_CardStack>
   }
 
   void _openEditSheet(Document doc) {
+    if (_isLocked(doc)) return;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -384,7 +395,7 @@ class _InboxCard extends ConsumerWidget {
                   child: Row(
                     children: [
                       TextButton.icon(
-                        onPressed: onEdit,
+                        onPressed: locked ? null : onEdit,
                         icon: Icon(Icons.edit_outlined,
                             size: 18, color: tokens.stamp),
                         label: const Text('Edit'),
@@ -396,7 +407,7 @@ class _InboxCard extends ConsumerWidget {
                       ),
                       Expanded(
                         child: FilledButton.icon(
-                          onPressed: onAccept,
+                          onPressed: locked ? null : onAccept,
                           icon: const Icon(Icons.check, size: 18),
                           label: const Text('Accept'),
                         ),
@@ -517,7 +528,10 @@ class _EditSheetState extends ConsumerState<_EditSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(widget.document.title,
+          Text(
+              ref.watch(lockedDocumentIdsProvider).isLocked(widget.document.id)
+                  ? lockedDocumentTitle
+                  : widget.document.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.titleLarge),
