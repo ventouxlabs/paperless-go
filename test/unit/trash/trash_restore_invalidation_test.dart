@@ -24,15 +24,27 @@ class _FakeApi extends PaperlessApi {
 
   @override
   Future<void> restoreFromTrash(List<int> documentIds) async {}
-}
 
-class _CountingDocuments extends DocumentsNotifier {
-  static int builds = 0;
+  final List<String?> documentQueries = [];
 
   @override
-  Future<DocumentsState> build() async {
-    builds++;
-    return const DocumentsState();
+  Future<PaginatedResponse<Document>> getDocuments({
+    int page = 1,
+    int pageSize = 25,
+    String? query,
+    String ordering = '-created',
+    bool? isInInbox,
+    List<int>? tagIds,
+    int? correspondentId,
+    int? documentTypeId,
+    int? moreLikeId,
+    bool truncateContent = true,
+    DateTime? createdDateFrom,
+    DateTime? createdDateTo,
+  }) async {
+    documentQueries.add(query);
+    return const PaginatedResponse(
+        count: 0, next: null, previous: null, results: []);
   }
 }
 
@@ -47,13 +59,12 @@ class _CountingInbox extends InboxNotifier {
 }
 
 void main() {
-  test('restoring documents rebuilds the Documents and Inbox lists', () async {
-    _CountingDocuments.builds = 0;
+  test('restoring documents reloads the Documents list keeping its filter and\n      rebuilds Inbox', () async {
+    final api = _FakeApi();
     _CountingInbox.builds = 0;
     final container = ProviderContainer(
       overrides: [
-        paperlessApiProvider.overrideWith((ref) => _FakeApi()),
-        documentsNotifierProvider.overrideWith(_CountingDocuments.new),
+        paperlessApiProvider.overrideWith((ref) => api),
         inboxNotifierProvider.overrideWith(_CountingInbox.new),
       ],
     );
@@ -71,7 +82,10 @@ void main() {
     await container.read(trashNotifierProvider.future);
     await container.read(documentsNotifierProvider.future);
     await container.read(inboxNotifierProvider.future);
-    expect(_CountingDocuments.builds, 1);
+    await container
+        .read(documentsNotifierProvider.notifier)
+        .applyFilter(const DocumentsFilter(query: 'invoice'));
+    expect(api.documentQueries, [null, 'invoice']);
     expect(_CountingInbox.builds, 1);
 
     final error = await container
@@ -81,7 +95,11 @@ void main() {
     await container.read(inboxNotifierProvider.future);
 
     expect(error, isNull);
-    expect(_CountingDocuments.builds, 2);
+    expect(api.documentQueries, [null, 'invoice', 'invoice']);
+    expect(
+      container.read(documentsNotifierProvider).valueOrNull?.filter.query,
+      'invoice',
+    );
     expect(_CountingInbox.builds, 2);
   });
 }
