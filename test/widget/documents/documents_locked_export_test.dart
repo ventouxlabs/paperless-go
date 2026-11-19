@@ -1,6 +1,7 @@
 // The Library's long-press Share / Save to folder and bulk Share / Save must
 // run the same biometric check as opening a locked document, and never name
-// the exported file after a locked document's real title.
+// the exported file after a locked document's real title. Bulk Merge must
+// run it too: the merged document gets a new, unlocked id.
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -73,18 +74,32 @@ List<Override> _downloadOverrides(List<(int, String)> downloads) => [
       }),
 ];
 
+/// An API whose every request is recorded and answered 200, so tests can
+/// check whether a bulk_edit call was ever sent.
+PaperlessApi _recordingApi(List<RequestOptions> requests) {
+  final dio = Dio(BaseOptions(baseUrl: 'http://localhost'));
+  dio.interceptors.add(
+    InterceptorsWrapper(
+      onRequest: (options, handler) {
+        requests.add(options);
+        handler.resolve(Response(requestOptions: options, statusCode: 200));
+      },
+    ),
+  );
+  return PaperlessApi(dio);
+}
+
 Future<void> _pump(
   WidgetTester tester, {
   required _FakeBiometrics biometrics,
   required List<(int, String)> downloads,
+  List<RequestOptions>? requests,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         documentsNotifierProvider.overrideWith(_TwoLockedDocs.new),
-        paperlessApiProvider.overrideWithValue(
-          PaperlessApi(Dio(BaseOptions(baseUrl: 'http://localhost'))),
-        ),
+        paperlessApiProvider.overrideWithValue(_recordingApi(requests ?? [])),
         documentLockServiceProvider.overrideWithValue(_FakeLocks({1, 2})),
         lockedDocumentIdsProvider.overrideWith((ref) async => {1, 2}),
         tagsProvider.overrideWith((ref) async => const {}),
@@ -117,6 +132,18 @@ Future<void> _selectBoth(WidgetTester tester) async {
 }
 
 const _denied = 'Authentication required to export a locked document';
+const _mergeDenied = 'Authentication required to merge a locked document';
+
+Future<void> _mergeSelected(WidgetTester tester) async {
+  await tester.tap(find.byTooltip('More actions'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Merge').last);
+  await tester.pumpAndSettle();
+  await tester.tap(find.widgetWithText(FilledButton, 'Merge'));
+  await tester.pumpAndSettle();
+}
+
+bool _isBulkEdit(RequestOptions r) => r.path.contains('bulk_edit');
 
 void main() {
   testWidgets(
@@ -209,4 +236,35 @@ void main() {
       expect(find.text(_denied), findsOneWidget);
     },
   );
+
+  testWidgets('bulk Merge with locked documents: denied auth, no merge sent', (
+    tester,
+  ) async {
+    final bio = _FakeBiometrics(succeed: false);
+    final requests = <RequestOptions>[];
+    await _pump(tester, biometrics: bio, downloads: [], requests: requests);
+
+    await _selectBoth(tester);
+    await _mergeSelected(tester);
+
+    expect(bio.prompts, 1);
+    expect(requests.where(_isBulkEdit), isEmpty);
+    expect(find.text(_mergeDenied), findsOneWidget);
+  });
+
+  testWidgets('bulk Merge with locked documents: merges after one prompt', (
+    tester,
+  ) async {
+    final bio = _FakeBiometrics(succeed: true);
+    final requests = <RequestOptions>[];
+    await _pump(tester, biometrics: bio, downloads: [], requests: requests);
+
+    await _selectBoth(tester);
+    await _mergeSelected(tester);
+
+    expect(bio.prompts, 1);
+    final merges = requests.where(_isBulkEdit).toList();
+    expect(merges, hasLength(1));
+    expect((merges.single.data as Map)['method'], 'merge');
+  });
 }
