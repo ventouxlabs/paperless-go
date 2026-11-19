@@ -68,27 +68,29 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     setState(() => _selectedIds.clear());
   }
 
-  /// Runs the per-document lock check before any file leaves the device.
-  /// Returns null (after telling the user) when a locked document is among
-  /// [docIds] and authentication did not succeed.
+  /// Runs the per-document lock check before any file leaves the device
+  /// (or, with [action] 'merge', before its content is copied into a new,
+  /// unlocked document). Returns null (after telling the user) when a locked
+  /// document is among [docIds] and authentication did not succeed.
   Future<ExportClearance?> _clearForExport(
     BuildContext context,
     WidgetRef ref,
-    Iterable<int> docIds,
-  ) async {
+    Iterable<int> docIds, {
+    String action = 'export',
+  }) async {
     final clearance = await clearForExport(
       documentIds: docIds,
       loadLockedIds: () =>
           ref.read(documentLockServiceProvider).getLockedIds(),
       authenticate: () => _biometricService.authenticate(
-        reason: 'Authenticate to export locked document',
+        reason: 'Authenticate to $action locked document',
       ),
     );
     if (clearance.allowed) return clearance;
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Authentication required to export a locked document'),
+        SnackBar(
+          content: Text('Authentication required to $action a locked document'),
         ),
       );
     }
@@ -494,6 +496,14 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                         ref.read(documentsNotifierProvider.notifier).refresh(),
                     onShare: () => _shareSelected(context, ref),
                     onSave: () => _saveSelected(context, ref),
+                    clearForMerge: (ids) async =>
+                        await _clearForExport(
+                          context,
+                          ref,
+                          ids,
+                          action: 'merge',
+                        ) !=
+                        null,
                   ),
                 ),
               ),
