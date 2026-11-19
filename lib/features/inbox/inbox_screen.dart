@@ -172,7 +172,13 @@ class _CardStackState extends ConsumerState<_CardStack>
 
     // Keep the queue topped up while sorting.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (docs.length < 5 && mounted) {
+      if (!mounted) return;
+      // Count only cards the user can still file; skipped or locked cards
+      // never leave the queue, so counting them would stall paging.
+      final actionable = docs
+          .where((d) => !_skippedIds.contains(d.id) && !_isLocked(d))
+          .length;
+      if (actionable < 5) {
         ref.read(inboxNotifierProvider.notifier).loadMore();
       }
     });

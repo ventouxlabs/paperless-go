@@ -25,11 +25,33 @@ class _FakeInbox extends InboxNotifier {
       );
 }
 
-Future<void> _pump(WidgetTester tester, {required Set<int> locked}) {
+class _PagedInbox extends InboxNotifier {
+  static int loadMoreCalls = 0;
+
+  @override
+  Future<InboxState> build() async => InboxState(
+        documents: [
+          for (var i = 1; i <= 5; i++) Document(id: i, title: 'Doc $i'),
+        ],
+        totalCount: 50,
+        hasMore: true,
+      );
+
+  @override
+  Future<void> loadMore() async {
+    loadMoreCalls++;
+  }
+}
+
+Future<void> _pump(
+  WidgetTester tester, {
+  required Set<int> locked,
+  InboxNotifier Function()? inbox,
+}) {
   return tester.pumpWidget(
     ProviderScope(
       overrides: [
-        inboxNotifierProvider.overrideWith(_FakeInbox.new),
+        inboxNotifierProvider.overrideWith(inbox ?? _FakeInbox.new),
         lockedDocumentIdsProvider.overrideWith((ref) async => locked),
         paperlessApiProvider.overrideWithValue(PaperlessApi(Dio())),
         correspondentsProvider.overrideWith((ref) async => {}),
@@ -93,6 +115,16 @@ void main() {
           matching: find.byWidgetPredicate((w) => w is ButtonStyleButton)));
       expect(accept.onPressed, isNotNull);
       expect(find.text('Secret'), findsNothing);
+    });
+
+    testWidgets('loads the next page when 5+ locked docs fill the queue',
+        (tester) async {
+      _PagedInbox.loadMoreCalls = 0;
+      await _pump(tester,
+          locked: {1, 2, 3, 4, 5}, inbox: _PagedInbox.new);
+      await tester.pumpAndSettle();
+
+      expect(_PagedInbox.loadMoreCalls, greaterThan(0));
     });
 
     testWidgets('an unlocked card keeps Edit and Accept enabled',
