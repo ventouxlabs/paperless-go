@@ -129,10 +129,13 @@ Future<void> _openSheet(
       correspondentId: prefill.correspondentId,
       documentTypeId: prefill.documentTypeId,
       tagIds: prefill.tagIds,
+      showStoragePath: true,
+      storagePathId: prefill.storagePathId,
       // Never from the AI's dates: they can be due dates.
       created: base.created,
       suggestedCorrespondent: prefill.suggestedCorrespondent,
       suggestedDocumentType: prefill.suggestedDocumentType,
+      suggestedStoragePath: prefill.suggestedStoragePath,
       suggestedTagIds: prefill.suggestedTagIds,
       topSlot: AiSuggestionsHeader(
         prefill: prefill,

@@ -266,7 +266,7 @@ void main() {
 
     testWidgets('an existing storage path is info only', (tester) async {
       final p = _prefill(
-        adminDoc,
+        adminDoc.copyWith(storagePath: 9),
         const AiSuggestions(storagePathIds: [5]),
         storagePaths: const {
           5: StoragePath(id: 5, name: 'Utilities', slug: 'utilities'),
@@ -275,7 +275,7 @@ void main() {
       await pumpHeader(tester, p: p);
 
       expect(find.text('AI suggests storage path: Utilities'), findsOneWidget);
-      expect(find.textContaining("doesn't edit storage paths"), findsOneWidget);
+      expect(find.textContaining("doesn't edit storage paths"), findsNothing);
       expect(find.text('Not in your library'), findsNothing);
     });
 

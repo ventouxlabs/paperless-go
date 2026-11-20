@@ -23,6 +23,9 @@ Map<String, dynamic> buildMetadataPatch(
   if (result.documentTypeId != base.documentType) {
     patch['document_type'] = result.documentTypeId;
   }
+  if (result.storagePathId != base.storagePath) {
+    patch['storage_path'] = result.storagePathId;
+  }
   // A cleared date means "leave as is" here — Paperless requires created.
   final created = result.created;
   if (created != null) {

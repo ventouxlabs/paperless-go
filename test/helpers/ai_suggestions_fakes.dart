@@ -32,6 +32,10 @@ final billSuggestions = AiSuggestions.fromJson(
   aiFixture('ai_suggestions_bill.json'),
 );
 
+final fixtureStoragePaths = {
+  5: const StoragePath(id: 5, name: 'Utilities', slug: 'utilities'),
+};
+
 final fixtureTags = {
   for (final (id, name) in [
     (1, 'Invoice'),
@@ -108,5 +112,5 @@ List<Override> aiLibraryOverrides(PaperlessApi api) => [
   tagsProvider.overrideWith((ref) async => fixtureTags),
   correspondentsProvider.overrideWith((ref) async => fixtureCorrespondents),
   documentTypesProvider.overrideWith((ref) async => fixtureTypes),
-  storagePathsProvider.overrideWith((ref) async => const <int, StoragePath>{}),
+  storagePathsProvider.overrideWith((ref) async => fixtureStoragePaths),
 ];

@@ -254,17 +254,28 @@ void main() {
     });
   });
 
-  group('storage paths are info only', () {
-    test('existing paths are named, unknown and new ones are listed', () {
-      const s = AiSuggestions(
-        storagePathIds: [5, 77],
-        suggestedStoragePathNames: ['Finance/Bills'],
-      );
+  group('storage paths', () {
+    const s = AiSuggestions(
+      storagePathIds: [77, 5],
+      suggestedStoragePathNames: ['Finance/Bills'],
+    );
+
+    test('first known path is pre-filled when the document has none', () {
       final p = _prefill(_blankDoc, s);
 
+      expect(p.storagePathId, 5);
+      expect(p.suggestedStoragePath, isTrue);
       expect(p.storagePathNames, ['Utilities']);
       expect(p.unknownStoragePathIds, [77]);
       expect(p.newStoragePathNames, ['Finance/Bills']);
+      expect(p.hasChanges, isTrue);
+    });
+
+    test('an existing path is kept, never replaced', () {
+      final p = _prefill(_blankDoc.copyWith(storagePath: 9), s);
+
+      expect(p.storagePathId, 9);
+      expect(p.suggestedStoragePath, isFalse);
       expect(p.hasChanges, isFalse);
       expect(p.hasInfo, isTrue);
     });

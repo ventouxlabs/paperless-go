@@ -6,6 +6,7 @@ import '../../core/api/api_providers.dart';
 import '../../core/design_tokens.dart';
 import '../../core/models/correspondent.dart';
 import '../../core/models/document_type.dart';
+import '../../core/models/storage_path.dart';
 import '../../core/models/tag.dart';
 import 'metadata_dropdown.dart';
 import 'stamp_chip.dart';
@@ -15,12 +16,14 @@ class MetadataSheetResult {
   const MetadataSheetResult({
     this.correspondentId,
     this.documentTypeId,
+    this.storagePathId,
     this.tagIds = const [],
     this.created,
   });
 
   final int? correspondentId;
   final int? documentTypeId;
+  final int? storagePathId;
   final List<int> tagIds;
   final DateTime? created;
 }
@@ -37,10 +40,13 @@ class MetadataSheet extends ConsumerStatefulWidget {
     super.key,
     this.correspondentId,
     this.documentTypeId,
+    this.storagePathId,
     this.tagIds = const [],
     this.created,
+    this.showStoragePath = false,
     this.suggestedCorrespondent = false,
     this.suggestedDocumentType = false,
+    this.suggestedStoragePath = false,
     this.suggestedDate = false,
     this.suggestedTagIds = const {},
     this.topSlot,
@@ -49,11 +55,17 @@ class MetadataSheet extends ConsumerStatefulWidget {
 
   final int? correspondentId;
   final int? documentTypeId;
+  final int? storagePathId;
   final List<int> tagIds;
   final DateTime? created;
 
+  /// Shows the storage-path dropdown. Off by default so bulk, upload and
+  /// detail callers are unchanged; [storagePathId] is returned as given then.
+  final bool showStoragePath;
+
   final bool suggestedCorrespondent;
   final bool suggestedDocumentType;
+  final bool suggestedStoragePath;
   final bool suggestedDate;
   final Set<int> suggestedTagIds;
 
@@ -70,6 +82,7 @@ class MetadataSheet extends ConsumerStatefulWidget {
 class _MetadataSheetState extends ConsumerState<MetadataSheet> {
   late int? _correspondentId = widget.correspondentId;
   late int? _documentTypeId = widget.documentTypeId;
+  late int? _storagePathId = widget.storagePathId;
   late final List<int> _tagIds = List.of(widget.tagIds);
   late DateTime? _created = widget.created;
   String _tagFilter = '';
@@ -80,6 +93,8 @@ class _MetadataSheetState extends ConsumerState<MetadataSheet> {
     final correspondentsAsync = ref.watch(correspondentsProvider);
     final docTypesAsync = ref.watch(documentTypesProvider);
     final tagsAsync = ref.watch(tagsProvider);
+    final storagePathsAsync =
+        widget.showStoragePath ? ref.watch(storagePathsProvider) : null;
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
@@ -143,6 +158,25 @@ class _MetadataSheetState extends ConsumerState<MetadataSheet> {
                           setState(() => _documentTypeId = dt?.id),
                     ),
                   ),
+                  if (storagePathsAsync != null) ...[
+                    const SizedBox(height: Spacing.lg),
+                    storagePathsAsync.when(
+                      loading: () => const LinearProgressIndicator(),
+                      error: (_, __) => const SizedBox.shrink(),
+                      data: (paths) => MetadataDropdown<StoragePath>(
+                        label: 'Storage Path',
+                        value: paths[_storagePathId],
+                        items: paths.values.toList(),
+                        displayName: (s) => s.name,
+                        suffix: widget.suggestedStoragePath &&
+                                _storagePathId == widget.storagePathId
+                            ? const _SuggestedDot()
+                            : null,
+                        onChanged: (s) =>
+                            setState(() => _storagePathId = s?.id),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: Spacing.sm),
 
                   // Created date
@@ -194,6 +228,7 @@ class _MetadataSheetState extends ConsumerState<MetadataSheet> {
                   widget.onSave(MetadataSheetResult(
                     correspondentId: _correspondentId,
                     documentTypeId: _documentTypeId,
+                    storagePathId: _storagePathId,
                     tagIds: List.of(_tagIds),
                     created: _created,
                   ));
