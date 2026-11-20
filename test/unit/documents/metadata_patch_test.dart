@@ -25,6 +25,7 @@ final _base = Document.fromJson(jsonDecode(
 MetadataSheetResult _unchanged() => MetadataSheetResult(
       correspondentId: _base.correspondent,
       documentTypeId: _base.documentType,
+      storagePathId: _base.storagePath,
       tagIds: _base.tags,
       created: _base.created,
     );
@@ -32,6 +33,33 @@ MetadataSheetResult _unchanged() => MetadataSheetResult(
 void main() {
   test('nothing changed: empty patch', () {
     expect(buildMetadataPatch(_base, _unchanged()), isEmpty);
+  });
+
+  test('storage path change: just storage_path, and clearing sends null', () {
+    MetadataSheetResult withPath(int? id) => MetadataSheetResult(
+          correspondentId: _base.correspondent,
+          documentTypeId: _base.documentType,
+          storagePathId: id,
+          storagePathEditable: true,
+          tagIds: _base.tags,
+          created: _base.created,
+        );
+    expect(buildMetadataPatch(_base, withPath(5)), {'storage_path': 5});
+    final withExisting = _base.copyWith(storagePath: 5);
+    expect(buildMetadataPatch(withExisting, withPath(null)),
+        {'storage_path': null});
+    expect(buildMetadataPatch(withExisting, withPath(5)), isEmpty);
+  });
+
+  test('storage path not editable in the sheet: never sent', () {
+    final withExisting = _base.copyWith(storagePath: 9);
+    final result = MetadataSheetResult(
+      correspondentId: _base.correspondent,
+      documentTypeId: _base.documentType,
+      tagIds: _base.tags,
+      created: _base.created,
+    );
+    expect(buildMetadataPatch(withExisting, result), isEmpty);
   });
 
   test('title-only change: just the title', () {

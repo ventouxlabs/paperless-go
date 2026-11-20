@@ -150,6 +150,25 @@ void main() {
     expect(result.created, adminDoc.created);
   });
 
+  testWidgets('a suggested storage path is pre-filled, marked and saved',
+      (tester) async {
+    await pumpHost(tester, adminDoc);
+    api.succeed(const AiSuggestions(storagePathIds: [5]));
+    await tester.pumpAndSettle();
+
+    final sheet = tester.widget<MetadataSheet>(find.byType(MetadataSheet));
+    expect(sheet.showStoragePath, isTrue);
+    expect(sheet.storagePathId, 5);
+    expect(sheet.suggestedStoragePath, isTrue);
+    expect(find.text('Utilities'), findsWidgets);
+    expect(find.textContaining("doesn't edit storage paths"), findsNothing);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    expect(saves.single.$2.storagePathId, 5);
+  });
+
   testWidgets('saving with the box unticked passes no title', (tester) async {
     await pumpHost(tester, adminDoc);
     api.succeed(billSuggestions);

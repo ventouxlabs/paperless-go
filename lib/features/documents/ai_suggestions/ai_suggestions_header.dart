@@ -80,8 +80,6 @@ class _AiSuggestionsHeaderState extends State<AiSuggestionsHeader> {
             'AI suggests storage path: '
             '${prefill.storagePathNames.join(', ')}',
           ),
-          Text("Not set here: this sheet doesn't edit storage paths.",
-              style: hint),
         ],
         if (prefill.hasNewNames)
           ..._byKind(

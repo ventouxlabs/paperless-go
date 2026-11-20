@@ -18,9 +18,11 @@ class AiSuggestionsPrefill {
   const AiSuggestionsPrefill({
     required this.correspondentId,
     required this.documentTypeId,
+    required this.storagePathId,
     required this.tagIds,
     required this.suggestedCorrespondent,
     required this.suggestedDocumentType,
+    required this.suggestedStoragePath,
     required this.suggestedTagIds,
     required this.suggestedTitle,
     required this.dates,
@@ -40,6 +42,7 @@ class AiSuggestionsPrefill {
   /// Initial sheet values: the document's own, or the AI's pick when unset.
   final int? correspondentId;
   final int? documentTypeId;
+  final int? storagePathId;
 
   /// The document's tags, then the AI's existing tags it doesn't have yet.
   final List<int> tagIds;
@@ -47,6 +50,7 @@ class AiSuggestionsPrefill {
   /// Sheet markers: true / non-empty only for values the AI filled in.
   final bool suggestedCorrespondent;
   final bool suggestedDocumentType;
+  final bool suggestedStoragePath;
   final Set<int> suggestedTagIds;
 
   /// The AI's title, or null when it matches the current one.
@@ -60,8 +64,8 @@ class AiSuggestionsPrefill {
   final String? correspondentDisagreement;
   final String? documentTypeDisagreement;
 
-  /// Existing storage paths the AI picked. Info only: the sheet has no
-  /// storage-path field.
+  /// Existing storage paths the AI picked (the first is pre-filled when the
+  /// document has none).
   final List<String> storagePathNames;
 
   /// "Not in your library", by kind: names the AI proposed that match
@@ -95,6 +99,7 @@ class AiSuggestionsPrefill {
   bool get hasChanges =>
       suggestedCorrespondent ||
       suggestedDocumentType ||
+      suggestedStoragePath ||
       suggestedTagIds.isNotEmpty ||
       suggestedTitle != null;
 
@@ -133,6 +138,12 @@ AiSuggestionsPrefill buildAiSuggestionsPrefill({
     names: {for (final t in documentTypes.values) t.id: t.name},
   );
 
+  final storagePath = _single(
+    current: document.storagePath,
+    suggestedIds: suggestions.storagePathIds,
+    names: {for (final s in storagePaths.values) s.id: s.name},
+  );
+
   final addedTagIds = <int>{
     for (final id in suggestions.tagIds)
       if (tags.containsKey(id) && !document.tags.contains(id)) id,
@@ -144,9 +155,11 @@ AiSuggestionsPrefill buildAiSuggestionsPrefill({
   return AiSuggestionsPrefill(
     correspondentId: correspondent.value,
     documentTypeId: documentType.value,
+    storagePathId: storagePath.value,
     tagIds: List.unmodifiable([...document.tags, ...addedTagIds]),
     suggestedCorrespondent: correspondent.prefilled,
     suggestedDocumentType: documentType.prefilled,
+    suggestedStoragePath: storagePath.prefilled,
     suggestedTagIds: Set.unmodifiable(addedTagIds),
     suggestedTitle: titleChanged ? title : null,
     dates: List.unmodifiable(suggestions.dates),
@@ -169,7 +182,7 @@ AiSuggestionsPrefill buildAiSuggestionsPrefill({
   );
 }
 
-/// One single-valued field (correspondent or document type).
+/// One single-valued field (correspondent, document type or storage path).
 ({int? value, bool prefilled, String? disagreement}) _single({
   required int? current,
   required List<int> suggestedIds,

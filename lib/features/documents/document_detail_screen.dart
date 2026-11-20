@@ -460,6 +460,8 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
       builder: (_) => MetadataSheet(
         correspondentId: doc.correspondent,
         documentTypeId: doc.documentType,
+        // Not shown here; carried through so the PATCH diff leaves it alone.
+        storagePathId: doc.storagePath,
         tagIds: doc.tags,
         created: doc.created,
         onSave: (result) => _saveMetadata(doc, result),
