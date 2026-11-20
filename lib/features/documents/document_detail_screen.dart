@@ -26,12 +26,14 @@ import '../../shared/widgets/tag_chip.dart';
 import '../../shared/save_to_folder_action.dart';
 import '../../core/api/download_file_type.dart';
 import '../../core/services/export_destination_service.dart';
+import 'ai_edit_diff.dart';
 import 'ai_edit_trail_notifier.dart';
 import 'ai_suggestions/ai_suggestions_action.dart';
 import 'ai_suggestions/ai_suggestions_flow.dart';
 import 'document_detail_notifier.dart';
 import 'documents_notifier.dart';
-import 'metadata_patch.dart';
+import 'metadata_save.dart';
+import 'ai_suggestions/ai_suggestions_prefill.dart';
 import '../inbox/inbox_notifier.dart';
 import '../../core/api/api_error_mapper.dart';
 import '../ai_chat/native_chat_providers.dart';
@@ -418,7 +420,7 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
               _NotesSection(documentId: documentId),
 
               // AI edit trail
-              _AiEditTrailSection(documentId: documentId),
+              AiEditTrailSection(documentId: documentId),
 
               const Divider(height: 32),
 
@@ -467,27 +469,51 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
 
   /// Persist only the fields the sheet actually changed, in one PATCH.
   /// [doc] is the document the sheet was opened with (see
-  /// [buildMetadataPatch]).
+  /// buildMetadataPatch).
   Future<void> _saveMetadata(
     Document doc,
     MetadataSheetResult result, {
     String? title,
-  }) async {
-    final patch = buildMetadataPatch(doc, result, title: title);
-    if (patch.isEmpty) return;
-    try {
-      await ref
-          .read(documentDetailProvider(documentId).notifier)
-          .updateField(patch);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content:
-                  Text('Failed to update details: ${friendlyApiMessage(e)}')),
-        );
-      }
+    AiSuggestionsPrefill? aiPrefill,
+  }) {
+    AiSaveContext? ai;
+    if (aiPrefill != null) {
+      final tags = ref.read(tagsProvider).valueOrNull ?? {};
+      final correspondents = ref.read(correspondentsProvider).valueOrNull ?? {};
+      final docTypes = ref.read(documentTypesProvider).valueOrNull ?? {};
+      ai = AiSaveContext(
+        source: 'native_ai',
+        prefill: aiPrefill,
+        names: AiEditNames(
+          tags: {for (final e in tags.entries) e.key: e.value.name},
+          correspondents: {
+            for (final e in correspondents.entries) e.key: e.value.name
+          },
+          documentTypes: {for (final e in docTypes.entries) e.key: e.value.name},
+        ),
+      );
     }
+    return saveMetadata(
+      doc: doc,
+      result: result,
+      title: title,
+      ai: ai,
+      patchDocument: (patch) => ref
+          .read(documentDetailProvider(documentId).notifier)
+          .updateField(patch),
+      recordEdits: (edits, source) => ref
+          .read(aiEditTrailProvider(documentId).notifier)
+          .recordEdits(edits, source),
+      onError: (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(
+                    'Failed to update details: ${friendlyApiMessage(e)}')),
+          );
+        }
+      },
+    );
   }
 
   /// Every action that isn't the app bar's primary Share, grouped by intent.
@@ -602,8 +628,9 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
           context,
           doc,
           // base: the document as re-read after the AI answered.
-          onSave: (base, result, newTitle) =>
-              _saveMetadata(base, result, title: newTitle),
+          onSave: (base, result, newTitle, prefill) => _saveMetadata(
+              base, result,
+              title: newTitle, aiPrefill: prefill),
         );
       default:
         await _handleAction(context, ref, action, title);
@@ -1718,9 +1745,9 @@ class _ShareLinksSectionState extends ConsumerState<_ShareLinksSection> {
   }
 }
 
-class _AiEditTrailSection extends ConsumerWidget {
+class AiEditTrailSection extends ConsumerWidget {
   final int documentId;
-  const _AiEditTrailSection({required this.documentId});
+  const AiEditTrailSection({super.key, required this.documentId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1733,37 +1760,49 @@ class _AiEditTrailSection extends ConsumerWidget {
       },
       data: (edits) {
         if (edits.isEmpty) return const SizedBox.shrink();
+        final bySource = <String, List<AiEditEntry>>{};
+        for (final e in edits) {
+          bySource.putIfAbsent(e.source, () => []).add(e);
+        }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Divider(height: 32),
-            Row(
-              children: [
-                Icon(
-                  Icons.auto_awesome,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.tertiary,
-                ),
-                const SizedBox(width: 8),
-                Semantics(
-                  header: true,
-                  child: Text(
-                    'AI Applied at Upload',
-                    style: Theme.of(context).textTheme.titleSmall,
+            for (final group in bySource.entries) ...[
+              const Divider(height: 32),
+              Row(
+                children: [
+                  Icon(
+                    Icons.auto_awesome,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.tertiary,
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ...edits.map(
-              (edit) => _AiEditRow(documentId: documentId, edit: edit),
-            ),
+                  const SizedBox(width: 8),
+                  Semantics(
+                    header: true,
+                    child: Text(
+                      _aiTrailHeading(group.key),
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ...group.value.map(
+                (edit) => _AiEditRow(documentId: documentId, edit: edit),
+              ),
+            ],
           ],
         );
       },
     );
   }
 }
+
+String _aiTrailHeading(String source) => switch (source) {
+      'native_ai' => 'AI Suggested',
+      'ocr_suggestion' => 'AI Applied at Upload',
+      _ => 'AI Edits',
+    };
 
 class _AiEditRow extends ConsumerWidget {
   final int documentId;

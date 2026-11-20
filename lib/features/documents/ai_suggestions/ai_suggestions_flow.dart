@@ -13,10 +13,10 @@ import 'ai_suggestions_notifier.dart';
 import 'ai_suggestions_prefill.dart';
 
 /// Receives the sheet's result, the document the sheet was opened with (the
-/// PATCH must diff against it), and the AI title when "Use this title" was
-/// ticked (null otherwise).
-typedef AiSuggestionsSave = void Function(
-    Document base, MetadataSheetResult result, String? title);
+/// PATCH must diff against it), the AI title when "Use this title" was
+/// ticked (null otherwise), and the suggestions the sheet was opened with.
+typedef AiSuggestionsSave = void Function(Document base,
+    MetadataSheetResult result, String? title, AiSuggestionsPrefill prefill);
 
 /// The text for each [AiSuggestionsErrorKind]; every error sentence of this
 /// feature is here. [cause] only feeds [AiSuggestionsErrorKind.other].
@@ -139,7 +139,7 @@ Future<void> _openSheet(
         onUseTitleChanged: (value) => useTitle = value,
       ),
       onSave: (result) =>
-          onSave(base, result, useTitle ? prefill.suggestedTitle : null),
+          onSave(base, result, useTitle ? prefill.suggestedTitle : null, prefill),
     ),
   );
 }
