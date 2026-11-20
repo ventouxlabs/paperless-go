@@ -129,7 +129,7 @@ class AiEdits extends Table {
   TextColumn get oldValue => text().nullable()();
   TextColumn get newValue => text().nullable()();
 
-  /// Source: 'ocr_suggestion' or 'chat'
+  /// Source: 'ocr_suggestion', 'chat' or 'native_ai'
   TextColumn get source => text()();
   DateTimeColumn get appliedAt => dateTime()();
 }

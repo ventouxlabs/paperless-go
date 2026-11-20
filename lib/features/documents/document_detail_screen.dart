@@ -32,7 +32,8 @@ import 'ai_suggestions/ai_suggestions_action.dart';
 import 'ai_suggestions/ai_suggestions_flow.dart';
 import 'document_detail_notifier.dart';
 import 'documents_notifier.dart';
-import 'metadata_patch.dart';
+import 'metadata_save.dart';
+import 'ai_suggestions/ai_suggestions_prefill.dart';
 import '../inbox/inbox_notifier.dart';
 import '../../core/api/api_error_mapper.dart';
 import '../ai_chat/native_chat_providers.dart';
@@ -468,48 +469,21 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
 
   /// Persist only the fields the sheet actually changed, in one PATCH.
   /// [doc] is the document the sheet was opened with (see
-  /// [buildMetadataPatch]).
+  /// buildMetadataPatch).
   Future<void> _saveMetadata(
     Document doc,
     MetadataSheetResult result, {
     String? title,
-    String? aiSource,
-  }) async {
-    final patch = buildMetadataPatch(doc, result, title: title);
-    if (patch.isEmpty) return;
-    try {
-      await ref
-          .read(documentDetailProvider(documentId).notifier)
-          .updateField(patch);
-      if (aiSource != null) {
-        await _recordAiEdits(doc, result, title, aiSource);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content:
-                  Text('Failed to update details: ${friendlyApiMessage(e)}')),
-        );
-      }
-    }
-  }
-
-  /// Best-effort: the PATCH already succeeded, so a trail failure is only logged.
-  Future<void> _recordAiEdits(
-    Document doc,
-    MetadataSheetResult result,
-    String? title,
-    String source,
-  ) async {
-    try {
+    AiSuggestionsPrefill? aiPrefill,
+  }) {
+    AiSaveContext? ai;
+    if (aiPrefill != null) {
       final tags = ref.read(tagsProvider).valueOrNull ?? {};
       final correspondents = ref.read(correspondentsProvider).valueOrNull ?? {};
       final docTypes = ref.read(documentTypesProvider).valueOrNull ?? {};
-      final edits = buildAiEdits(
-        doc,
-        result,
-        title: title,
+      ai = AiSaveContext(
+        source: 'native_ai',
+        prefill: aiPrefill,
         names: AiEditNames(
           tags: {for (final e in tags.entries) e.key: e.value.name},
           correspondents: {
@@ -518,13 +492,28 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
           documentTypes: {for (final e in docTypes.entries) e.key: e.value.name},
         ),
       );
-      if (edits.isEmpty) return;
-      await ref
-          .read(aiEditTrailProvider(documentId).notifier)
-          .recordEdits(edits, source);
-    } catch (e) {
-      debugPrint('Failed to record AI edit trail: $e');
     }
+    return saveMetadata(
+      doc: doc,
+      result: result,
+      title: title,
+      ai: ai,
+      patchDocument: (patch) => ref
+          .read(documentDetailProvider(documentId).notifier)
+          .updateField(patch),
+      recordEdits: (edits, source) => ref
+          .read(aiEditTrailProvider(documentId).notifier)
+          .recordEdits(edits, source),
+      onError: (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(
+                    'Failed to update details: ${friendlyApiMessage(e)}')),
+          );
+        }
+      },
+    );
   }
 
   /// Every action that isn't the app bar's primary Share, grouped by intent.
@@ -639,8 +628,9 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen> {
           context,
           doc,
           // base: the document as re-read after the AI answered.
-          onSave: (base, result, newTitle) =>
-              _saveMetadata(base, result, title: newTitle, aiSource: 'native_ai'),
+          onSave: (base, result, newTitle, prefill) => _saveMetadata(
+              base, result,
+              title: newTitle, aiPrefill: prefill),
         );
       default:
         await _handleAction(context, ref, action, title);
@@ -1810,7 +1800,8 @@ class AiEditTrailSection extends ConsumerWidget {
 
 String _aiTrailHeading(String source) => switch (source) {
       'native_ai' => 'AI Suggested',
-      _ => 'AI Applied at Upload',
+      'ocr_suggestion' => 'AI Applied at Upload',
+      _ => 'AI Edits',
     };
 
 class _AiEditRow extends ConsumerWidget {

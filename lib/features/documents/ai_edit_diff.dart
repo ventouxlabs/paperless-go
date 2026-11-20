@@ -1,8 +1,7 @@
-import 'package:flutter/foundation.dart' show setEquals;
-
 import '../../core/models/document.dart';
 import '../../shared/widgets/metadata_sheet.dart';
 import 'ai_edit_trail_notifier.dart';
+import 'ai_suggestions/ai_suggestions_prefill.dart';
 
 /// Id-to-name lookups used to write readable AI-trail values.
 class AiEditNames {
@@ -25,42 +24,56 @@ String? _single(Map<int, String> map, int? id) =>
 String? _tags(Map<int, String> map, List<int> ids) =>
     ids.isEmpty ? null : ids.map((i) => _name(map, i)).join(', ');
 
-/// The AI-trail entries for a native-AI save: one per field that differs from
-/// [base] (mirrors [buildMetadataPatch]), with ids resolved to names.
+String _day(DateTime d) => d.toIso8601String().split('T').first;
+
+/// The AI-trail entries for a native-AI save: only fields the AI actually
+/// suggested ([prefill]) and the user kept, with ids resolved to names.
+/// A field the user overrode or changed by hand gets no row.
 EditMap buildAiEdits(
   Document base,
   MetadataSheetResult result, {
   String? title,
+  required AiSuggestionsPrefill prefill,
   required AiEditNames names,
 }) {
   final edits = <String, ({String? oldValue, String? newValue})>{};
+  // [title] is only non-null when "Use this title" was ticked.
   if (title != null && title != base.title) {
     edits['title'] = (oldValue: base.title, newValue: title);
   }
-  if (result.correspondentId != base.correspondent) {
+  if (prefill.suggestedCorrespondent &&
+      result.correspondentId == prefill.correspondentId &&
+      result.correspondentId != base.correspondent) {
     edits['correspondent'] = (
       oldValue: _single(names.correspondents, base.correspondent),
       newValue: _single(names.correspondents, result.correspondentId),
     );
   }
-  if (result.documentTypeId != base.documentType) {
+  if (prefill.suggestedDocumentType &&
+      result.documentTypeId == prefill.documentTypeId &&
+      result.documentTypeId != base.documentType) {
     edits['document_type'] = (
       oldValue: _single(names.documentTypes, base.documentType),
       newValue: _single(names.documentTypes, result.documentTypeId),
     );
   }
   final created = result.created;
-  if (created != null) {
-    final newDate = created.toIso8601String().split('T').first;
-    final oldDate = base.created?.toIso8601String().split('T').first;
-    if (newDate != oldDate) {
-      edits['created'] = (oldValue: oldDate, newValue: newDate);
-    }
+  if (created != null &&
+      created != base.created &&
+      prefill.dates.any((d) => _day(d) == _day(created))) {
+    edits['created'] = (
+      oldValue: base.created == null ? null : _day(base.created!),
+      newValue: _day(created),
+    );
   }
-  if (!setEquals(result.tagIds.toSet(), base.tags.toSet())) {
+  final keptTags = [
+    for (final id in result.tagIds)
+      if (prefill.suggestedTagIds.contains(id) && !base.tags.contains(id)) id,
+  ];
+  if (keptTags.isNotEmpty) {
     edits['tags'] = (
       oldValue: _tags(names.tags, base.tags),
-      newValue: _tags(names.tags, result.tagIds),
+      newValue: _tags(names.tags, [...base.tags, ...keptTags]),
     );
   }
   return edits;

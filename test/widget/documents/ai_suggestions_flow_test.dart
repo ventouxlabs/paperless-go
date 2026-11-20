@@ -43,7 +43,7 @@ void main() {
           onPressed: () => showAiSuggestions(
             context,
             doc,
-            onSave: (base, result, title) => saves.add((base, result, title)),
+            onSave: (base, result, title, _) => saves.add((base, result, title)),
           ),
           child: const Text('go'),
         ),

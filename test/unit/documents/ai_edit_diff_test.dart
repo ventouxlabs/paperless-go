@@ -5,11 +5,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:paperless_go/core/models/document.dart';
 import 'package:paperless_go/features/documents/ai_edit_diff.dart';
+import 'package:paperless_go/features/documents/ai_suggestions/ai_suggestions_prefill.dart';
 import 'package:paperless_go/shared/widgets/metadata_sheet.dart';
 
 const _names = AiEditNames(
-  tags: {1: 'Bills', 3: 'Energy'},
-  correspondents: {5: 'ACME'},
+  tags: {1: 'Bills', 3: 'Energy', 4: 'Misc'},
+  correspondents: {5: 'ACME', 6: 'Other'},
   documentTypes: {7: 'Invoice'},
 );
 
@@ -22,8 +23,36 @@ final _base = Document.fromJson({
   'created': '2026-01-02',
 });
 
+AiSuggestionsPrefill prefill({
+  int? correspondentId,
+  bool suggestedCorrespondent = false,
+  Set<int> suggestedTagIds = const {},
+  List<DateTime> dates = const [],
+}) =>
+    AiSuggestionsPrefill(
+      correspondentId: correspondentId,
+      documentTypeId: 7,
+      tagIds: const [1],
+      suggestedCorrespondent: suggestedCorrespondent,
+      suggestedDocumentType: false,
+      suggestedTagIds: suggestedTagIds,
+      suggestedTitle: null,
+      dates: dates,
+      correspondentDisagreement: null,
+      documentTypeDisagreement: null,
+      storagePathNames: const [],
+      newTagNames: const [],
+      newCorrespondentNames: const [],
+      newDocumentTypeNames: const [],
+      newStoragePathNames: const [],
+      unknownTagIds: const [],
+      unknownCorrespondentIds: const [],
+      unknownDocumentTypeIds: const [],
+      unknownStoragePathIds: const [],
+    );
+
 void main() {
-  test('records only changed fields with resolved names', () {
+  test('records suggested fields the user kept, with resolved names', () {
     final edits = buildAiEdits(
       _base,
       const MetadataSheetResult(
@@ -33,6 +62,10 @@ void main() {
         created: null,
       ),
       title: 'Electricity Bill',
+      prefill: prefill(
+          correspondentId: 5,
+          suggestedCorrespondent: true,
+          suggestedTagIds: {3}),
       names: _names,
     );
     expect(edits, {
@@ -42,21 +75,42 @@ void main() {
     });
   });
 
-  test('cleared document type records null new value', () {
+  test('user overrides write no row for the overridden field', () {
     final edits = buildAiEdits(
       _base,
-      const MetadataSheetResult(tagIds: [1]),
+      MetadataSheetResult(
+        correspondentId: 6, // AI suggested 5
+        documentTypeId: 7,
+        tagIds: const [1, 4], // user added 4, dropped AI's 3
+        created: DateTime(2026, 3, 3), // not one of the AI's dates
+      ),
+      prefill: prefill(
+          correspondentId: 5,
+          suggestedCorrespondent: true,
+          suggestedTagIds: {3},
+          dates: [DateTime(2026, 5, 5)]),
       names: _names,
     );
-    expect(edits, {'document_type': (oldValue: 'Invoice', newValue: null)});
+    expect(edits, isEmpty);
   });
 
-  test('unknown id falls back to the id', () {
+  test('hand edits with nothing suggested write no rows', () {
     final edits = buildAiEdits(
       _base,
-      const MetadataSheetResult(documentTypeId: 7, correspondentId: 99, tagIds: [1]),
+      const MetadataSheetResult(correspondentId: 6, tagIds: []),
+      prefill: prefill(),
       names: _names,
     );
-    expect(edits['correspondent'], (oldValue: null, newValue: '#99'));
+    expect(edits, isEmpty);
+  });
+
+  test('created is recorded only when it is one of the AI dates', () {
+    final edits = buildAiEdits(
+      _base,
+      MetadataSheetResult(tagIds: const [1], documentTypeId: 7, created: DateTime(2026, 5, 5)),
+      prefill: prefill(dates: [DateTime(2026, 5, 5)]),
+      names: _names,
+    );
+    expect(edits, {'created': (oldValue: '2026-01-02', newValue: '2026-05-05')});
   });
 }
