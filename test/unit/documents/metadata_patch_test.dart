@@ -40,6 +40,7 @@ void main() {
           correspondentId: _base.correspondent,
           documentTypeId: _base.documentType,
           storagePathId: id,
+          storagePathEditable: true,
           tagIds: _base.tags,
           created: _base.created,
         );
@@ -48,6 +49,17 @@ void main() {
     expect(buildMetadataPatch(withExisting, withPath(null)),
         {'storage_path': null});
     expect(buildMetadataPatch(withExisting, withPath(5)), isEmpty);
+  });
+
+  test('storage path not editable in the sheet: never sent', () {
+    final withExisting = _base.copyWith(storagePath: 9);
+    final result = MetadataSheetResult(
+      correspondentId: _base.correspondent,
+      documentTypeId: _base.documentType,
+      tagIds: _base.tags,
+      created: _base.created,
+    );
+    expect(buildMetadataPatch(withExisting, result), isEmpty);
   });
 
   test('title-only change: just the title', () {

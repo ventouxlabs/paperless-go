@@ -17,6 +17,7 @@ class MetadataSheetResult {
     this.correspondentId,
     this.documentTypeId,
     this.storagePathId,
+    this.storagePathEditable = false,
     this.tagIds = const [],
     this.created,
   });
@@ -24,6 +25,10 @@ class MetadataSheetResult {
   final int? correspondentId;
   final int? documentTypeId;
   final int? storagePathId;
+
+  /// Whether the sheet showed the storage-path field. When false,
+  /// [storagePathId] is not the user's choice and must not be saved.
+  final bool storagePathEditable;
   final List<int> tagIds;
   final DateTime? created;
 }
@@ -95,6 +100,9 @@ class _MetadataSheetState extends ConsumerState<MetadataSheet> {
     final tagsAsync = ref.watch(tagsProvider);
     final storagePathsAsync =
         widget.showStoragePath ? ref.watch(storagePathsProvider) : null;
+    // A failed list hides the dropdown: the user never saw the value.
+    final storagePathEditable =
+        storagePathsAsync != null && storagePathsAsync.hasValue;
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
@@ -229,6 +237,7 @@ class _MetadataSheetState extends ConsumerState<MetadataSheet> {
                     correspondentId: _correspondentId,
                     documentTypeId: _documentTypeId,
                     storagePathId: _storagePathId,
+                    storagePathEditable: storagePathEditable,
                     tagIds: List.of(_tagIds),
                     created: _created,
                   ));

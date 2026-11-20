@@ -23,7 +23,10 @@ Map<String, dynamic> buildMetadataPatch(
   if (result.documentTypeId != base.documentType) {
     patch['document_type'] = result.documentTypeId;
   }
-  if (result.storagePathId != base.storagePath) {
+  // Only when the sheet showed the field: a forgotten argument must not
+  // clear the path (Paperless moves files when it changes).
+  if (result.storagePathEditable &&
+      result.storagePathId != base.storagePath) {
     patch['storage_path'] = result.storagePathId;
   }
   // A cleared date means "leave as is" here — Paperless requires created.
